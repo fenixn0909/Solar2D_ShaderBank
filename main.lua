@@ -23,7 +23,7 @@
     You could change the keycode on "Input" section to fit your keyboard layout.
     
     MOUSE SCROLLER -
-    ✳️ You can scroll the param page by mouse or trackpad.
+    ✳️ You can scroll the param page up and down by mouse or trackpad.
     
     RESOURCE - 
     ✳️ You could add your own image resources for testing by modifying the "mC_aaImgFN" table,
@@ -116,7 +116,7 @@ local maoButton = {}
 local maoGrp = {}
 
 ----------------------------------------------------------------------------------------------------
-local M,m,mm,mtFn,mLstnr = {},{},{},{},{}
+local M,m,mm,mtFn,mLsnr = {},{},{},{},{}
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 -- Public
@@ -134,6 +134,9 @@ M.startup = function()  -- Calls only once
     _aList = file_get_match_sub( mC_pthC, '^%a.*', '.lua' )
     shdilr.load_list( mC_pthC:gsub('%/','%.'), _aList, 4 )
     
+    Runtime:addEventListener( "key", mLsnr.onEvent_keyboard )
+    Runtime:addEventListener( "mouse", mLsnr.onEvent_mouse )
+
 end
 
 
@@ -151,19 +154,19 @@ M.init = function()
     m.upd_img( 1, 2 )
     m.upd_img( 2, 2 )
 
-    m.init_switch( maoGrp[0], maoSwitch, mLstnr.aPage_switch ) -- Page Change
-    moSegCon = m.new_segCon( maoGrp[0], mLstnr.segCon, mC_akCate ) -- Shader Category
+    m.init_switch( maoGrp[0], maoSwitch, mLsnr.aPage_switch ) -- Page Change
+    moSegCon = m.new_segCon( maoGrp[0], mLsnr.segCon, mC_akCate ) -- Shader Category
 
     --=== Page: Param
-    m.init_scrollerView( maoGrp[1], mLstnr.scrView ) 
+    m.init_scrollerView( maoGrp[1], mLsnr.scrView ) 
     m.init_textParam_VD( moScrView, mtoTextVD )
-    m.init_slider( moScrView, maoSlider, mLstnr.aVD_slider )  
+    m.init_slider( moScrView, maoSlider, mLsnr.aVD_slider )  
     
     --=== Page: Texture
-    moPckrWhl = m.initNew_wheel( maoGrp[2], mLstnr.pckrWhl )
+    moPckrWhl = m.initNew_wheel( maoGrp[2], mLsnr.pckrWhl )
     --=== Page: Filename, Shift Button
     m.init_file_text( maoGrp[3], mtoTextVD )
-    m.init_menu_button( maoGrp[3], maoButton, mLstnr.aFile_botton )
+    m.init_menu_button( maoGrp[3], maoButton, mLsnr.aFile_botton )
 
     --=== Hide Groups
     toggle_visible( false, maoGrp[2], maoGrp[3])
@@ -177,8 +180,8 @@ M.init = function()
     -- m.apply_specific_shader( mC_akCate[1], 'kernelG_BG_stars' )
     -- m.apply_specific_shader( mC_akCate[1], 'kernelG_FX_energyBeam' )
     -- m.apply_specific_shader( mC_akCate[1], 'kernelG_water_windWalk2D' )
-    m.apply_specific_shader( mC_akCate[2], 'kernelF_fxNoise_balatroFire' )
-    -- m.apply_specific_shader( mC_akCate[2], 'kernelF_wobble_float' )
+    -- m.apply_specific_shader( mC_akCate[2], 'kernelF_fxNoise_balatroFire' )
+    m.apply_specific_shader( mC_akCate[2], 'kernelF_FX_geometricArt' )
     -- m.apply_specific_shader( mC_akCate[2], 'kernelF_FX_wavingParticles' )
     -- m.apply_specific_shader( mC_akCate[2], 'kernelF_deform_perspective' )
     -- m.apply_specific_shader( mC_akCate[2], 'kernelF_wobble_waterSurface' )
@@ -272,7 +275,7 @@ m.init_switch = function( grp_, aoSwitch_, aLstnr_ )
         aoSwitch_[i] = widget.newSwitch {
             style= "radio", id= "Page "..i,
             initialSwitchState= i==1 ,
-            -- onPress= mLstnr.aPage_switch[i],
+            -- onPress= mLsnr.aPage_switch[i],
             onPress= aLstnr_[i],
         }
         aoSwitch_[i].x, aoSwitch_[i].y = _bX, _bY +_dY*(3-i)
@@ -485,7 +488,7 @@ mtFn.iptD['.'] = function() mm.tweak_slider('+',4,B) end    --=== Increase Param
 ----------------------------------------------------------------------------------------------------
 mm.go_mode = function( i_ )
     moSegCon:setActiveSegment(i_)
-    mLstnr.segCon{target={segmentNumber= i_}}--  {target={segmentNumber= i_}} e_.target.segmentNumber
+    mLsnr.segCon{target={segmentNumber= i_}}--  {target={segmentNumber= i_}} e_.target.segmentNumber
 end
 mm.swap_shader = function( i_ )    local _akOpt = {'bank_prev','bank_next'}     assert(_akOpt[i_], 'invalid ind: '..i_)
     shdilr[_akOpt[i_]]()
@@ -548,21 +551,21 @@ end
 -- Listener
 ----------------------------------------------------------------------------------------------------
 
-mLstnr.aVD_slider = {}
-for i=1,mC_nMaxParams do    mLstnr.aVD_slider[i] = function( e_ ) mm.slider_percent_to_value( i, mtShdrData_cur, e_.value )     end end -- print( "Slider "..i.. "at " .. e_.value .. "%" )
+mLsnr.aVD_slider = {}
+for i=1,mC_nMaxParams do    mLsnr.aVD_slider[i] = function( e_ ) mm.slider_percent_to_value( i, mtShdrData_cur, e_.value )     end end -- print( "Slider "..i.. "at " .. e_.value .. "%" )
 
-mLstnr.aPage_switch = {}
-for i=1,3 do    mLstnr.aPage_switch[i] = function( e_ ) mm.trig_switch(i)     end end -- print("e_.target.id: "..e_.target.id)
+mLsnr.aPage_switch = {}
+for i=1,3 do    mLsnr.aPage_switch[i] = function( e_ ) mm.trig_switch(i)     end end -- print("e_.target.id: "..e_.target.id)
 
-mLstnr.aFile_botton = {}
-for i=1,2 do    mLstnr.aFile_botton[i] = function( e_ )
+mLsnr.aFile_botton = {}
+for i=1,2 do    mLsnr.aFile_botton[i] = function( e_ )
     if ( "ended" == e_.phase ) then     -- or "cancelled" == e_.phase
         if i==1 then mtFn.iptU['left']() end
         if i==2 then mtFn.iptU['right']() end
     end
 end end
 
-mLstnr.segCon = function( e_ )
+mLsnr.segCon = function( e_ )
     local _nSN = e_.target.segmentNumber
     if mkCateCur == mC_akCate[ _nSN ] then return    end
     mkCateCur = mC_akCate[ _nSN ]
@@ -572,12 +575,12 @@ mLstnr.segCon = function( e_ )
     m.apply_bank_shader()
 end
 
-mLstnr.pckrWhl = function( e_ )   -- e_:{ column = 3, row = 21 }
+mLsnr.pckrWhl = function( e_ )   -- e_:{ column = 3, row = 21 }
     local _iT, _iI = e_.column, e_.row     --@indImgType, @indImage
     m.upd_img( _iT, _iI )
 end
 
-mLstnr.scrView = function( e_ )
+mLsnr.scrView = function( e_ )
     local phase = e_.phase
     local direction = e_.direction
 
@@ -605,7 +608,7 @@ mLstnr.scrView = function( e_ )
     return true
 end
 
-mLstnr.onEvent_Key = function( e_ )
+mLsnr.onEvent_keyboard = function( e_ )
     if      (e_.phase == "up") then    if mtFn.iptU[ e_.keyName ] then     mtFn.iptU[ e_.keyName ]() end
     elseif  (e_.phase == "down") then  if mtFn.iptD[ e_.keyName ] then     mtFn.iptD[ e_.keyName ]() end
     end
@@ -613,7 +616,7 @@ end
 
 ----------------------------------------------------------------------------------------------------
 
-local function onMouseEvent( e_ )
+mLsnr.onEvent_mouse = function( e_ )
     if e_.type == "scroll" then
         local _x, _y = moScrView:getContentPosition()
         local _toY = _y - e_.scrollY * 5
@@ -629,8 +632,6 @@ end
 M.startup()
 M.init()
 
-Runtime:addEventListener( "mouse", onMouseEvent )
-Runtime:addEventListener( "key", mLstnr.onEvent_Key )
 ----------------------------------------------------------------------------------------------------
 
 return M
