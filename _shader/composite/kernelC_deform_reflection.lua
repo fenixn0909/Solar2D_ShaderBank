@@ -43,40 +43,56 @@ kernel.group = "deform"
 kernel.name = "reflection"
 kernel.isTimeDependent = true
 
--- Expose effect parameters using vertex data
-kernel.vertexData   = {
-  {
-    name = "texDiffRatioX",
-    default = 1,
-    min = 0,
-    max = 32,  
-    index = 0,    
-  },
-  {
-    name = "texDiffRatioY",
-    default = 1,
-    min = 0,
-    max = 32,  
-    index = 1,    
-  },
-  
+kernel.uniformData =
+{
+    {
+        index = 0,
+        type = "mat4",  -- vec4 x 4
+        name = "uniSetting",
+        paramName = {
+            'TexDiffRatioX','TexDiffRatioY','Level','Water_Opacity',
+            'Water_Speed','Wave_Distortion','Wave_Multiplyer','Water_Texture_On',
+            'Reflection_X_Offset','Reflection_Y_Offset','Water_Albedo_R','Water_Albedo_G',
+            'Water_Albedo_B','Water_Albedo_A','','',
+        },
+        default = {
+            1, 1, .5, .35,
+            .05, .2, 7, 1,
+            0, 0, .26, .23,
+            .73, 1, 0,0,
+        },
+        min = {
+            0, 0, 0, 0,
+            0, 0, 1, 0,
+            -.5, -.5, 0, 0,
+            0, 0, 0,0,
+        },
+        max = {
+            32, 32, 1, 1,
+            .5, 1, 20, 1,
+            .5, .5, 1, 1,
+            1, 1, 1,1,
+        },
+    },
 }
 
 
 kernel.fragment =
 [[
-  vec2 texDiffRatio = vec2( CoronaVertexUserData.x, CoronaVertexUserData.y );
+  uniform P_COLOR mat4 u_UserData0;
+
+  vec2 texDiffRatio = vec2( u_UserData0[0][0], u_UserData0[0][1] );
 
 //----------------------------------------------
-  uniform float level = 0.5; // : hint_range(0.0, 1.0)
-  uniform vec4 water_albedo = vec4(0.26, 0.23, 0.73, 1.0); // : hint_color
-  uniform float water_opacity = 0.35; // : hint_range(0.0, 1.0)
-  uniform float water_speed = 0.05;
-  uniform float wave_distortion = 0.2;
-  uniform int wave_multiplyer = 7; // 7.
-  uniform bool water_texture_on = true;
-  uniform float reflection_X_offset = 0.0;
-  uniform float reflection_Y_offset = 0.0;
+  float level               = u_UserData0[0][2];
+  float water_opacity        = u_UserData0[0][3];
+  float water_speed          = u_UserData0[1][0];
+  float wave_distortion      = u_UserData0[1][1];
+  int   wave_multiplyer      = int( u_UserData0[1][2] );
+  bool  water_texture_on     = u_UserData0[1][3] > 0.5;
+  float reflection_X_offset  = u_UserData0[2][0];
+  float reflection_Y_offset  = u_UserData0[2][1];
+  vec4  water_albedo         = vec4( u_UserData0[2][2], u_UserData0[2][3], u_UserData0[3][0], u_UserData0[3][1] );
 
   float rand(vec2 n) { 
     return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);

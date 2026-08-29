@@ -33,14 +33,18 @@ local miBF_cur              -- cur mIndexBankFile
 ----------------------------------------------------------------------------------------------------
 
 --=== Load file list array
-M.load_list = function( kFdr_, aFN_, iU_ )    --@kFilePrefix, @aFileName, @iUnion,
+M.load_list = function( kFdr_, aFN_, iU_, bKeep_ )    --@kFilePrefix, @aFileName, @iUnion, @bKeepExisting: true to append onto an already-loaded union instead of resetting it (for merging a second source folder into the same category)
     
     miBF_cur = 1;
-    maaList[iU_] = {}
-    madShdr[iU_] = {}
+    if not bKeep_ then
+        maaList[iU_] = {}
+        madShdr[iU_] = {}
+    end
 
     local _d = {}
     local _aList, _dShdr = {},{} -- ShdrList, ShdrData
+    -- ensure deterministic A-Z input (also sorted in file_get_match_sub, but keep here for safety)
+    table.sort(aFN_, function(a,b) return a:lower() < b:lower() end)
     for i=1,# aFN_ do
         local _fileNm = aFN_[i]
         _d[#_d+1] = require( kFdr_ .. _fileNm )
@@ -49,6 +53,13 @@ M.load_list = function( kFdr_, aFN_, iU_ )    --@kFilePrefix, @aFileName, @iUnio
             maaList[iU_][#maaList[iU_]+1] = _fileNm
             madShdr[iU_][_fileNm] = m.extract_info( _d[#_d] )
         end
+    end
+    -- when merging a second source folder (ported) with bKeep, interleave globally A-Z
+    if bKeep_ and maaList[iU_] then
+        table.sort(maaList[iU_], function(a,b) return a:lower() < b:lower() end)
+    elseif maaList[iU_] then
+        -- also keep single-source lists sorted
+        table.sort(maaList[iU_], function(a,b) return a:lower() < b:lower() end)
     end
 end
 

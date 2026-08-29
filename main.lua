@@ -51,13 +51,24 @@ local mC_pthF = "_shader/filter/"
 local mC_pthT = "_shader/filter_trans/"
 local mC_pthC = "_shader/composite/"
 
-local mC_nMaxParams = 32
-local mC_aRectSize = { 280, 320 } -- None square for aspect debuging  { 320, 320 }
+-- Second source per category, merged into the same Generator/Filter/Composite
+-- tabs at startup (see M.startup). No _shader/ported/filter_trans/ - nothing
+-- lives there yet, and file_get_match_sub/lfs.dir would error on a folder
+-- that doesn't exist on disk, so it's left out until it's actually needed.
+local mC_pthG2 = "_shader/ported/generator/"
+local mC_pthF2 = "_shader/ported/filter/"
+local mC_pthC2 = "_shader/ported/composite/"
+
+local mC_nMaxParams = 64
+local mC_aRectSize = { 320, 320 } -- None square for aspect debuging  { 320, 320 }
 ----------------------------------------------------------------------------------------------------
 display.setStatusBar( display.HiddenStatusBar )
 -- display.setDefault( "textureWrapX", "repeat" )
 -- display.setDefault( "textureWrapY", "repeat" )
 ----------------------------------------------------------------------------------------------------
+require("_mcp_touch")  -- Auto-injected by MCP server
+require("_mcp_screenshot")  -- Auto-injected by MCP server
+require("_mcp_logger")  -- Auto-injected by MCP server
 local shdilr = require( "_plugin.shdilr" )
 local inspect = require( "_plugin.inspect" ) -- Using only for Debuging
 local widget = require( "widget" )
@@ -77,9 +88,12 @@ local s_match = string.match
 local file_get_match_sub = function( sPth_, sPtrn_, sTrim_ ) --@strPath, @strPattern
     local _path = system.pathForFile( sPth_, system.ResourceDirectory )
     local _a = {}
-    for file in _lfs.dir( _path ) do  
-        if file:match( sPtrn_ ) then    _a[#_a+1] = file:gsub( sTrim_, "" )     end
+    for file in _lfs.dir( _path ) do
+        -- only real .lua files, ignore .rej/.orig backups from patches
+        if file:match(sPtrn_) and file:match("%.lua$") then    _a[#_a+1] = file:gsub("%.lua$", "" )     end
     end
+    -- A-Z for quick scroll to specific shader (case-insensitive)
+    table.sort(_a, function(a,b) return a:lower() < b:lower() end)
 return _a    end
 
 local function new_deep_copy( copy_ )    if( type(copy_) ~= "table" ) then  return copy_ end
@@ -127,12 +141,21 @@ M.startup = function()  -- Calls only once
     local _aList
     _aList = file_get_match_sub( mC_pthG, '^%a.*', '.lua' )
     shdilr.load_list( mC_pthG:gsub('%/','%.'), _aList, 1 )
+    _aList = file_get_match_sub( mC_pthG2, '^%a.*', '.lua' )
+    shdilr.load_list( mC_pthG2:gsub('%/','%.'), _aList, 1, true )
+
     _aList = file_get_match_sub( mC_pthF, '^%a.*', '.lua' )
     shdilr.load_list( mC_pthF:gsub('%/','%.'), _aList, 2 )
+    _aList = file_get_match_sub( mC_pthF2, '^%a.*', '.lua' )
+    shdilr.load_list( mC_pthF2:gsub('%/','%.'), _aList, 2, true )
+
     _aList = file_get_match_sub( mC_pthT, '^%a.*', '.lua' )
     shdilr.load_list( mC_pthT:gsub('%/','%.'), _aList, 3 )
+
     _aList = file_get_match_sub( mC_pthC, '^%a.*', '.lua' )
     shdilr.load_list( mC_pthC:gsub('%/','%.'), _aList, 4 )
+    _aList = file_get_match_sub( mC_pthC2, '^%a.*', '.lua' )
+    shdilr.load_list( mC_pthC2:gsub('%/','%.'), _aList, 4, true )
     
     Runtime:addEventListener( "key", mLsnr.onEvent_keyboard )
     Runtime:addEventListener( "mouse", mLsnr.onEvent_mouse )
@@ -166,7 +189,7 @@ M.init = function()
     moPckrWhl = m.initNew_wheel( maoGrp[2], mLsnr.pckrWhl )
     --=== Page: Filename, Shift Button
     m.init_file_text( maoGrp[3], mtoTextVD )
-    m.init_menu_button( maoGrp[3], maoButton, mLsnr.aFile_botton )
+    m.init_menu_button( maoGrp[3], maoButton, mLsnr.aFile_button )
 
     --=== Hide Groups
     toggle_visible( false, maoGrp[2], maoGrp[3])
@@ -181,12 +204,12 @@ M.init = function()
     -- m.apply_specific_shader( mC_akCate[1], 'kernelG_FX_energyBeam' )
     -- m.apply_specific_shader( mC_akCate[1], 'kernelG_water_windWalk2D' )
     -- m.apply_specific_shader( mC_akCate[2], 'kernelF_fxNoise_balatroFire' )
-    m.apply_specific_shader( mC_akCate[2], 'kernelF_FX_geometricArt' )
-    -- m.apply_specific_shader( mC_akCate[2], 'kernelF_FX_wavingParticles' )
+    -- m.apply_specific_shader( mC_akCate[2], 'kernelF_FX_geometricArt' )
+    -- m.apply_specific_shader( mC_akCate[2], 'kernelF_fxNoise_lensFlare' )
     -- m.apply_specific_shader( mC_akCate[2], 'kernelF_deform_perspective' )
     -- m.apply_specific_shader( mC_akCate[2], 'kernelF_wobble_waterSurface' )
     -- m.apply_specific_shader( mC_akCate[3], 'kernelF_trans_pageScroll' )
-    -- m.apply_specific_shader( mC_akCate[4], 'kernelC_FX_radialShine' )
+    m.apply_specific_shader( mC_akCate[4], 'kernelC_BG_textureOverlay' )
     
     m.upd_img( 2, 1 )   -- Trigger textureWrap setting
     
@@ -353,9 +376,42 @@ m.apply_specific_shader = function( kC_, kN_ )  -- @keyCategory, @keyFileName
 end
 
 mm.load_shader_data = function()
-    if shdilr.bank_get_dUniform() and shdilr.bank_get_dVertex() then error("Do not use both VertexData and UniformData") end
+    local hasU = shdilr.bank_get_dUniform() ~= nil
+    local hasV = shdilr.bank_get_dVertex() ~= nil
 
-    if shdilr.bank_get_dUniform() then
+    if hasU and hasV then
+        -- Combined mode: both vertexData and uniformData present (e.g., vignetteDither, stylizedWater).
+        -- Merge into a single slider list: vertex entries first, then uniform entries.
+        -- This keeps the 32-slider UI working without needing two separate pages.
+        local vData = shdilr.bank_get_dVertex()
+        local uData = shdilr.new_dUniform_mat4()
+        mtShdrData_cur = {}
+        mtShdrData_cur.dataType = 'TypD_Both'
+        mtShdrData_cur.vertexData_raw = vData
+        mtShdrData_cur.uniformData_raw = uData
+        mtShdrData_cur.aName = uData.aName
+        mtShdrData_cur.adToShdr = uData.adToShdr
+        -- Build combined flat list for UI iteration
+        local idx = 0
+        for i=1,#vData do
+            idx = idx + 1
+            local e = vData[i]
+            mtShdrData_cur[idx] = {
+                name = e.name, default = e.default, min = e.min, max = e.max, index = e.index,
+                isVertex = true, vertexName = e.name
+            }
+        end
+        for i=1,#uData do
+            local e = uData[i]
+            idx = idx + 1
+            mtShdrData_cur[idx] = {
+                name = e.name, default = e.default, min = e.min, max = e.max,
+                isUniform = true, iMat4 = e.iMat4, iArr = e.iArr
+            }
+        end
+        mtShdrData_cur.numVertex = #vData
+        mtShdrData_cur.numUniform = #uData
+    elseif hasU then
         mtShdrData_cur = shdilr.new_dUniform_mat4()
         mtShdrData_cur.dataType = 'TypD_Uniform'
     else 
@@ -534,17 +590,28 @@ mm.slider_percent_to_value = function( i_, d_, fV_ ) --@Index, @fPercentage
     local _value = fV_ * _fTick + _tVD.min
     mtoTextVD.tVD_float[i_].text = _value
 
-    if mtShdrData_cur.dataType == 'TypD_Uniform' then  
+    -- Both-type: dispatch per-entry flag, otherwise fall back to global dataType
+    if _tVD.isUniform then
+        d_.adToShdr[_tVD.iMat4][_tVD.iArr] = _value
+        shdilr.sync_param( maoImage[2], { [ d_.aName[_tVD.iMat4] ]= d_.adToShdr[_tVD.iMat4] } )
+    elseif _tVD.isVertex then
+        shdilr.sync_param( maoImage[2], { [_tVD.vertexName]= _value } )
+    elseif mtShdrData_cur.dataType == 'TypD_Uniform' then
         d_.adToShdr[_tVD.iMat4][_tVD.iArr] = _value
         shdilr.sync_param( maoImage[2], { [ d_.aName[_tVD.iMat4] ]= d_.adToShdr[_tVD.iMat4] } )
         -- print( "d_.adToShdr: "..inspect(d_.adToShdr) )
-    elseif mtShdrData_cur.dataType == 'TypD_Vertex' then    
+    elseif mtShdrData_cur.dataType == 'TypD_Vertex' then
         shdilr.sync_param( maoImage[2], { [_tVD.name]= _value } )
+    elseif mtShdrData_cur.dataType == 'TypD_Both' then
+        -- Fallback for Both without per-entry flag (should not happen)
+        if _tVD.iMat4 then
+            d_.adToShdr[_tVD.iMat4][_tVD.iArr] = _value
+            shdilr.sync_param( maoImage[2], { [ d_.aName[_tVD.iMat4] ]= d_.adToShdr[_tVD.iMat4] } )
+        else
+            shdilr.sync_param( maoImage[2], { [_tVD.name]= _value } )
+        end
     end
 end
-
-
-
 
 
 ----------------------------------------------------------------------------------------------------
@@ -557,8 +624,8 @@ for i=1,mC_nMaxParams do    mLsnr.aVD_slider[i] = function( e_ ) mm.slider_perce
 mLsnr.aPage_switch = {}
 for i=1,3 do    mLsnr.aPage_switch[i] = function( e_ ) mm.trig_switch(i)     end end -- print("e_.target.id: "..e_.target.id)
 
-mLsnr.aFile_botton = {}
-for i=1,2 do    mLsnr.aFile_botton[i] = function( e_ )
+mLsnr.aFile_button = {}
+for i=1,2 do    mLsnr.aFile_button[i] = function( e_ )
     if ( "ended" == e_.phase ) then     -- or "cancelled" == e_.phase
         if i==1 then mtFn.iptU['left']() end
         if i==2 then mtFn.iptU['right']() end
@@ -580,33 +647,7 @@ mLsnr.pckrWhl = function( e_ )   -- e_:{ column = 3, row = 21 }
     m.upd_img( _iT, _iI )
 end
 
-mLsnr.scrView = function( e_ )
-    local phase = e_.phase
-    local direction = e_.direction
-
-    if "began" == phase then
-        -- print( "Began" )
-    elseif "moved" == phase then
-        -- print( "Moved" )
-    elseif "ended" == phase then
-        -- print( "Ended" )
-    end
-
-    -- If the scrollView has reached its scroll limit
-    if e_.limitReached then
-        if "up" == direction then
-            print( "Reached Top Limit" )
-        elseif "down" == direction then
-            print( "Reached Bottom Limit" )
-        elseif "left" == direction then
-            print( "Reached Left Limit" )
-        elseif "right" == direction then
-            print( "Reached Right Limit" )
-        end
-    end
-
-    return true
-end
+mLsnr.scrView = function( e_ )  end
 
 mLsnr.onEvent_keyboard = function( e_ )
     if      (e_.phase == "up") then    if mtFn.iptU[ e_.keyName ] then     mtFn.iptU[ e_.keyName ]() end
@@ -621,7 +662,9 @@ mLsnr.onEvent_mouse = function( e_ )
         local _x, _y = moScrView:getContentPosition()
         local _toY = _y - e_.scrollY * 5
         if _toY > 0 then  _toY = 0    end
-        if _toY < -900 then   _toY = -900 end
+        -- allow scrolling for up to 64 params (32*32=1024 -> -900, 64*32=2048 -> -1800)
+        local limit = -math.max( 900, mC_nMaxParams * 32 - 200 )
+        if _toY < limit then   _toY = limit end
         moScrView:scrollToPosition{ time= 0, y= _toY }
     end
 end

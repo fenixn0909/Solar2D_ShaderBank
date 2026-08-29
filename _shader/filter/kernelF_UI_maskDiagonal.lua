@@ -11,8 +11,8 @@ local kernel = {}
 
 kernel.language = "glsl"
 kernel.category = "filter"
-kernel.group = "color"
-kernel.name = "cycling"
+kernel.group = "UI"
+kernel.name = "maskDiagonal"
 
 kernel.vertexData =
 {

@@ -1,9 +1,21 @@
+--[[
+    PLACEHOLDER - not yet implemented.
+    The vertex kernel below is currently an unmodified copy of
+    filter.wobble.wind2 (cloned as a starting point, never finished).
+    It was also declaring the same category.group.name as wind2, which
+    collided in Solar2D's effect registry - fixed by renaming below.
+
+    Reference for the parallax effect this was meant to become (ShaderToy,
+    still needs porting to Solar2D fragment-kernel conventions):
+    https://www.shadertoy.com/view/MlB3D3
+--]]
+
 local kernel = {}
 
 kernel.language = "glsl"
 kernel.category = "filter"
-kernel.group = "wobble"
-kernel.name = "wind2"
+kernel.group = "scroll"
+kernel.name = "parallax"
 
 kernel.isTimeDependent = true
 

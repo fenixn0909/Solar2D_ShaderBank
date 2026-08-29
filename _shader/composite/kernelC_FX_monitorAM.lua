@@ -19,7 +19,8 @@ kernel.textureWrap = 'repeat'
 
 kernel.vertexData =
 {
-    { name = "Mix",           default =  1, min = 0., max = 1, index = 1, },
+    { name = "Progress",      default =  1, min = 0, max = 1, index = 0, },
+  { name = "Mix",           default =  1, min = 0., max = 1, index = 1, },
     { name = "Pixel_Size",    default = .02, min = 0.005, max = 0.05, index = 2, },
     { name = "Contrast",      default = .5, min = -1, max = 1, index = 3, },
 } 

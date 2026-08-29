@@ -17,9 +17,17 @@ kernel.uniformData =
 {
     {
     name = "matAimC",
+    type="mat4",
+    index = 0,
+    paramName = {
+      'Speed','Span','','',
+      '','','','',
+      '','','','',
+      '','','','',
+    },
     default = {
-      0.5, 0.2, 1.0, 1.0, -- Speed, Span
-      1.0, 1.0, 1.0, 1.0, -- Tint
+      0.5, 0.2, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0,
       1.0, 1.0, 1.0, 1.0,
       1.0, 1.0, 1.0, 1.0
     },
@@ -35,11 +43,17 @@ kernel.uniformData =
       1.0, 1.0, 1.0, 1.0,
       1.0, 1.0, 1.0, 1.0
     },
-    type="mat4",
-    index = 0, -- u_UserData0
   },
   {
     name = "matToC",
+    type="mat4",
+    index = 1,
+    paramName = {
+      '','','','',
+      '','','','',
+      '','','','',
+      '','','','',
+    },
     default = {
       0.0, 0.0, 0.0, 0.0,
       0.0, 0.0, 0.0, 0.0,
@@ -58,8 +72,6 @@ kernel.uniformData =
       1.0, 1.0, 1.0, 1.0,
       1.0, 1.0, 1.0, 1.0
     },
-    type="mat4",
-    index = 1, -- u_UserData1
   },
 }
 
@@ -83,7 +95,7 @@ P_DEFAULT float luminance(P_COLOR vec4 colour) {
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
   P_UV vec2 UV = texCoord;
-  P_COLOR vec4 texColor = texture2D( u_FillSampler0, texCoord ); 
+  P_COLOR vec4 texColor = texture2D( CoronaSampler0, texCoord ); 
   
   //P_DEFAULT float timer = CoronaTotalTime * PI * speed;
   P_DEFAULT float timer = mod(CoronaTotalTime * PI , 1 )  * speed;

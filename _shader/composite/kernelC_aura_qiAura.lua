@@ -32,50 +32,52 @@ kernel.name = "qiAura"
 kernel.isTimeDependent = true
 
 -- Expose effect parameters using vertex data
-kernel.vertexData   = {
-  {
-    name = "intensity",
-    default = 0.65, 
-    min = 0,
-    max = 1,
-    index = 0,  -- This corresponds to "CoronaVertexUserData.x"
-  },
-  {
-    name = "size",
-    default = 0.1, 
-    min = 0,
-    max = 1,
-    index = 1,  -- This corresponds to "CoronaVertexUserData.y"
-  },
-  {
-    name = "tilt",
-    default = 0.2, 
-    min = 0.0,
-    max = 2.0,
-    index = 2,  -- This corresponds to "CoronaVertexUserData.z"
-  },
-  {
-    name = "speed",
-    default = 1.0, 
-    min = 0.1,
-    max = 10.0,
-    index = 3,  -- This corresponds to "CoronaVertexUserData.w"
-  },
+kernel.uniformData   = {
+    {
+        index = 0,
+        type = "mat4",  -- vec4 x 4
+        name = "uniSetting",
+        paramName = {
+            'Progress','Tilling','TextureLoadMult','TexNoiseScaler',
+            'MovementDirSpeed_X','MovementDirSpeed_Y','MovementDirSpeed2_X','MovementDirSpeed2_Y',
+            'ScaleMult_X','ScaleMult_Y','','',
+            '','','','',
+        },
+        default = {
+            1, 26, 8, .8,
+            -.6, 1, .6, 1,
+            1, 1, 0,0,
+            0,0,0,0,
+        },
+        min = {
+            0, 1, 0, .1,
+            -3, -3, -3, -3,
+            .1, .1, 0,0,
+            0,0,0,0,
+        },
+        max = {
+            2, 60, 10, 3,
+            3, 3, 3, 3,
+            2, 2, 1,1,
+            1,1,1,1,
+        },
+    },
 }
 
 kernel.fragment =
 [[
-uniform vec2 ScaleMult = vec2(1.0);
+uniform P_COLOR mat4 u_UserData0;
 
-float Progress = 0.0; //:hint_range(0.0, 1.0, 0.1)
+float Progress = u_UserData0[0][0]; //:hint_range(0.0, 1.0, 0.1)
+float Tilling = u_UserData0[0][1]; //:hint_range(0.0, 60.0, 0.01) =
 uniform float TextureLaodMult = 8.0; //:hint_range(0.0, 10.0, 0.01) 
-uniform float Tilling = 26.0; //:hint_range(0.0, 60.0, 0.01) = 
-uniform vec2 MovementDirSpeed = vec2(-0.6, 1.0);
-uniform vec2 MovementDirSpeed2 = vec2(0.6, 1.0);
+vec2 MovementDirSpeed = vec2( u_UserData0[0][3], u_UserData0[1][0] );
+vec2 MovementDirSpeed2 = vec2( u_UserData0[1][1], u_UserData0[1][2] );
 uniform vec2 Noise_Seed = vec2(1.0);
 //uniform sampler2D color_gradiant :repeat_enable, filter_linear_mipmap;
 
 uniform P_DEFAULT float texNoiseScaler = 0.8;
+vec2 ScaleMult = vec2( u_UserData0[2][0], u_UserData0[2][1] );
 
 
 //GradientColors
@@ -136,10 +138,6 @@ vec4 AuraEffect(vec2 uv, vec4 CurrentColor, sampler2D OriginTexTure){
 //----------------------------------------------
 P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
 {
-    // Test
-    Progress = abs(sin(CoronaTotalTime * Freq)) * Amplitude ;
-
-    
     //----------------------------------------------
 
 

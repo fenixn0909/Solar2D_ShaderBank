@@ -1,18 +1,13 @@
-
 --[[
   Origin Author: Nevoski
   https://godotshaders.com/author/Nevoski/
-  
-  I converted/modified this shader from this ShaderToy ripple shader: https://www.shadertoy.com/view/ldBXDD
-
-  Just attach the shader to a ColorRect, and play with the shader parameters to get stronger or weaker ripple effects. Everything behind the ColorRect will be affected by the shader.
-
-  // Converted/modified from ShaderToy: https://www.shadertoy.com/view/ldBXDD
-  // Attach this shader to a ColorRect
-
+  Converted from ShaderToy https://www.shadertoy.com/view/ldBXDD ripple.
+  Fixed: hardcoded wave_count=2000, speed=3, height=0.003 and
+  height = sin(TIME)*0.1 override ignored vertexData screenPxX/Y/tilt/speed.
+  Now: X=Wave_Count, Y=Speed, Z=Tilt (height), W=Center_Offset are real-time.
+  Also removed erroneous u_resolution/gl_FragCoord uniforms; use
+  CoronaTexelSize + CoronaTotalTime like other time-dependent filters.
 --]]
-
-
 
 local kernel = {}
 
@@ -22,104 +17,42 @@ kernel.group = "deform"
 kernel.name = "ripple"
 kernel.isTimeDependent = true
 
--- Expose effect parameters using vertex data
 kernel.vertexData   = {
-  {
-    name = "screenPxX",
-    default = 1, 
-    min = 0,
-    max = 9999,
-    index = 0,  -- This corresponds to "CoronaVertexUserData.x"
-  },
-  {
-    name = "screenPxY",
-    default = 1, 
-    min = 0,
-    max = 9999,
-    index = 1,  -- This corresponds to "CoronaVertexUserData.y"
-  },
-  {
-    name = "tilt",
-    default = 0.2, 
-    min = 0.0,
-    max = 2.0,
-    index = 2,  -- This corresponds to "CoronaVertexUserData.z"
-  },
-  {
-    name = "speed",
-    default = 1.0, 
-    min = 0.1,
-    max = 10.0,
-    index = 3,  -- This corresponds to "CoronaVertexUserData.w"
-  },
+  { name = "Wave_Count", default = 12, min = 1, max = 40, index = 0, },
+  { name = "Speed",      default = 3,  min = 0, max = 10, index = 1, },
+  { name = "Height",     default = 0.03, min = 0, max = 0.15, index = 2, },
+  { name = "Center_X",   default = 0.5, min = 0, max = 1, index = 3, },
 }
-
 
 kernel.fragment =
 [[
-uniform float wave_count = 2000.0; //: hint_range(1.0, 20.0, 1.0) 
-uniform float speed = 3.0; //: hint_range(0.0, 10.0, 0.1) 
-
-uniform vec2 u_resolution;
-uniform vec4 gl_FragCoord; 
-uniform vec4 glViewport; // Test
-
-//uniform float screen_width = 960; // Test
-//uniform float screen_height = 640; // Test
-
-float screen_width = CoronaVertexUserData.x; // Test
-float screen_height = CoronaVertexUserData.y; // Test
-
-
-
-
-
-float height = 0.003; //: hint_range(0.0, 0.1, 0.001)
-
 
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
-  P_UV vec2 SCREEN_SIZE = vec2(screen_width, screen_height);
-  P_UV vec2 SCREEN_PIXEL_SIZE = 1 / SCREEN_SIZE;
-  //P_UV vec2 SCREEN_PIXEL_SIZE = 1 / vec2(screen_width, screen_height);
-  //P_UV vec2 SCREEN_PIXEL_SIZE = vec2(1 / u_resolution.y, 1 / u_resolution.x );
-  //P_UV vec2 SCREEN_UV = gl_FragCoord.xy * SCREEN_PIXEL_SIZE;
+  float Wave_Count = CoronaVertexUserData.x;
+  float Speed      = CoronaVertexUserData.y;
+  float Height     = CoronaVertexUserData.z;
+  float Center_X   = CoronaVertexUserData.w; // reuse as center.x, y fixed 0.5
 
-
-  
+  P_DEFAULT float TIME = CoronaTotalTime;
+  P_UV vec2 TEXTURE_PIXEL_SIZE = CoronaTexelSize.zw;
 
   P_UV vec2 UV = texCoord;
-  //P_UV vec2 UV = gl_FragCoord.xy / u_resolution;
-  //P_UV vec2 UV = gl_FragCoord.xy / SCREEN_SIZE;
-  P_UV vec4 FRAGCOORD = gl_FragCoord;
-  P_UV vec2 TEXTURE_PIXEL_SIZE = CoronaTexelSize.zw;
-  
-  P_DEFAULT float TIME = CoronaTotalTime;
-  //Test
-  height = sin(CoronaTotalTime)*0.1;
-
-
-  vec2 cPos = -1.0 + 2.0 * UV / (1.0 / TEXTURE_PIXEL_SIZE);
-  float cLength = length(cPos);
-  vec2 uv = FRAGCOORD.xy / (1.0 / SCREEN_PIXEL_SIZE).xy + (cPos/cLength) * cos(cLength * wave_count - TIME * speed) * height;
-  uv -= 0.5; // Offset Correction
-  vec3 col = texture2D(CoronaSampler0,uv).xyz;
-  P_COLOR vec4 COLOR = vec4(col,1.0);
-
+  // center in UV space, allow horizontal shift via Center_X
+  vec2 center = vec2(Center_X, 0.5);
+  vec2 cPos = -1.0 + 2.0 * (UV - center) / (1.0 / TEXTURE_PIXEL_SIZE * TEXTURE_PIXEL_SIZE.x);
+  // simpler: use UV distance from center
+  vec2 dUV = UV - center;
+  float cLength = length(dUV * vec2(1.0 / TEXTURE_PIXEL_SIZE.x, 1.0 / TEXTURE_PIXEL_SIZE.y) * 0.002);
+  // use wave_count directly
+  vec2 uv = UV + normalize(dUV + vec2(0.0001)) * cos(cLength * Wave_Count - TIME * Speed) * Height * 0.5;
+  uv = clamp(uv, vec2(0.0), vec2(1.0));
+  vec4 tex = texture2D(CoronaSampler0, uv);
+  // preserve original texture alpha; no black opaque where no ripple
+  P_COLOR vec4 COLOR = tex;
+  COLOR.rgb *= COLOR.a;
   return CoronaColorScale( COLOR );
 }
 ]]
 
 return kernel
-
-
---[[
-
-
-
---]]
-
-
-
-
-

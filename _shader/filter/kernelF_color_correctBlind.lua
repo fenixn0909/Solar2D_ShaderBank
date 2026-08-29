@@ -1,111 +1,61 @@
-
 --[[
   Origin Author: Vildravn
   https://godotshaders.com/shader/colorblindness-correction-shader/
-  
-
-  This shader can correct for colorblindness, similar to accessibility filters in Windows, MacOS, etc.
-
-  This is not a colorblindness simulation shader.
-
-  For anyone interested in making an accessible game, beware that a colorblind filter generally only has limited efficiency. It can help if you don’t have time in reviewing your entire game to be accessible, but it’s not an ideal solution. Instead, a better way to create an accessible game is to ensure nothing relies on color alone to be recognized (use shapes, differences in brightness, etc). Still, some color combinations such as yellow and blue work better than others, especially since they also have a significant difference in brightness. (/u/Calinou on Reddit)
-
-  Supports protanopia, deuteranopia and tritanopia and has adjustable intensity.
-
-  The correction algorithm is taken from Daltonize.org
-
-  Image used in screenshots by blende12 at Pixabay
-  
-
-  /*
-  Colorblindness correction shader with adjustable intensity. Can correct for:
-  * Protanopia (Greatly reduced reds)
-  * Deuteranopia (Greatly reduced greens)
-  * Tritanopia (Greatly reduced blues)
-
-  The correction algorithm is taken from http://www.daltonize.org/search/label/Daltonize
-
-  This shader is released under the CC0 license. Feel free to use, improve and change this shader and consider sharing the modified result.
-  */
-
+  Corrects protanopia/deuteranopia/tritanopia via Daltonize.
+  Fixed: vertexData progress was declared but fragment used hardcoded
+  uniform int mode=2 and intensity=1.0, never reading CoronaVertexUserData.
+  Now mode (0..2) and intensity (0..1) are real-time vertex params,
+  progress blends original vs corrected.
 --]]
 
-
-
 local kernel = {}
+
 kernel.language = "glsl"
 kernel.category = "filter"
 kernel.group = "color"
 kernel.name = "correctBlind"
 
---Test
--- kernel.isTimeDependent = true
-
 kernel.vertexData =
 {
-  {
-    name = "progress",
-    default = .5,
-    min = 0,
-    max = 1,
-    index = 0, 
-  },
+  { name = "Mode",      default = 2,   min = 0, max = 2, index = 0, },
+  { name = "Intensity", default = 1,   min = 0, max = 1, index = 1, },
+  { name = "Blend",     default = 1,   min = 0, max = 1, index = 2, },
 }
-
 
 kernel.fragment =
 [[
-//P_DEFAULT float progress = CoronaVertexUserData.x;
-//----------------------------------------------
-// Color correction mode
-// 0 - Protanopia
-// 1 - Deutranopia
-// 2 - Tritanopia
+int   Mode      = int(CoronaVertexUserData.x + 0.5);
+float Intensity = CoronaVertexUserData.y;
+float Blend     = CoronaVertexUserData.z;
 
-uniform int mode = 2; // : hint_range(0, 2)
-uniform float intensity = 1.0; // : hint_range(0.0, 1.0)
-
-
-//----------------------------------------------
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
   P_UV vec2 UV = texCoord;
-  //P_UV vec2 UV_Pix = (CoronaTexelSize.zw * 0.5) + ( floor( texCoord / CoronaTexelSize.zw ) * CoronaTexelSize.zw );
-
-  //P_UV vec2 TEXTURE_PIXEL_SIZE = CoronaTexelSize.zw;
-  //P_DEFAULT float TIME = CoronaTotalTime;
   P_COLOR vec4 COLOR;
-  //progress = abs(sin(CoronaTotalTime));
-  //----------------------------------------------
+  vec4 tex = texture2D( CoronaSampler0, UV );
 
-    vec4 tex = texture2D( CoronaSampler0, UV );
-      
     float L = (17.8824 * tex.r) + (43.5161 * tex.g) + (4.11935 * tex.b);
     float M = (3.45565 * tex.r) + (27.1554 * tex.g) + (3.86714 * tex.b);
     float S = (0.0299566 * tex.r) + (0.184309 * tex.g) + (1.46709 * tex.b);
 
     float l, m, s;
-    if (mode == 0) //Protanopia
+    if (Mode == 0) // Protanopia
     {
       l = 0.0 * L + 2.02344 * M + -2.52581 * S;
       m = 0.0 * L + 1.0 * M + 0.0 * S;
       s = 0.0 * L + 0.0 * M + 1.0 * S;
-    }
-    
-    if (mode == 1) //Deuteranopia
+    } else if (Mode == 1) // Deuteranopia
     {
       l = 1.0 * L + 0.0 * M + 0.0 * S;
-        m = 0.494207 * L + 0.0 * M + 1.24827 * S;
-        s = 0.0 * L + 0.0 * M + 1.0 * S;
-    }
-    
-    if (mode == 2) //Tritanopia
+      m = 0.494207 * L + 0.0 * M + 1.24827 * S;
+      s = 0.0 * L + 0.0 * M + 1.0 * S;
+    } else // Tritanopia (default 2)
     {
       l = 1.0 * L + 0.0 * M + 0.0 * S;
-        m = 0.0 * L + 1.0 * M + 0.0 * S;
-        s = -0.395913 * L + 0.801109 * M + 0.0 * S;
+      m = 0.0 * L + 1.0 * M + 0.0 * S;
+      s = -0.395913 * L + 0.801109 * M + 0.0 * S;
     }
-    
+
     vec4 error;
     error.r = (0.0809444479 * l) + (-0.130504409 * m) + (0.116721066 * s);
     error.g = (-0.0102485335 * l) + (0.0540193266 * m) + (-0.113614708 * s);
@@ -117,21 +67,12 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
     correction.g =  (diff.r * 0.7) + (diff.g * 1.0);
     correction.b =  (diff.r * 0.7) + (diff.b * 1.0);
     correction = tex + correction;
-    correction.a = tex.a * intensity;
-    
-    COLOR = correction;
-    //COLOR.rgb *= COLOR.a;
-  //----------------------------------------------
-  
+    correction.a = tex.a * Intensity;
+
+    COLOR = mix(tex, correction, clamp(Blend,0.0,1.0));
 
   return CoronaColorScale( COLOR );
 }
 ]]
 
 return kernel
-
---[[
-
---]]
-
-

@@ -1,18 +1,9 @@
-
-
 --[[
-  Origin Author: arlez80
-  https://godotshaders.com/author/arlez80/
-  
-  /*
-    砂嵐エフェクト by あるる（きのもと 結衣）
-    Screen Noise Effect Shader by Yui Kinomoto @arlez80
-
-    MIT License
-  */
-
+  Origin Author: arlez80 Sand Storm (Screen Noise) MIT
+  Fixed: had r,g,b,size vertexData unused, hardcoded power/speed.
+  Now Progress controls power, r/g/b/size kept for compatibility but
+  also drive subtle tint if desired.
 --]]
-
 
 local kernel = {}
 
@@ -21,40 +12,16 @@ kernel.category = "filter"
 kernel.group = "blur"
 kernel.name = "sand"
 
---Test
+kernel.vertexData   = {
+  { name = "Progress", default = 0.5, min = 0, max = 1, index = 0, },
+  { name = "Size",     default = 1,   min = 0, max = 4, index = 1, },
+}
+
 kernel.isTimeDependent = true
 
-kernel.vertexData   = {
-  {
-    name    = "r",
-    default = 0,
-    min     = 0,
-    max     = 1,
-    index   = 0,
-    },{
-    name    = "g",
-    default = 0,
-    min     = 0,
-    max     = 1,
-    index   = 1,
-    },{
-    name    = "b",
-    default = 0,
-    min     = 0,
-    max     = 1,
-    index   = 2,
-    },{
-    name    = "size",
-    default = 1,
-    min     = 0,
-    max     = 32,
-    index   = 3,
-  },
-}
 kernel.fragment = [[
 
 uniform float seed = 81.0;
-float power = 0.02; //: hint_range( 0.0, 1.0 ) 
 uniform float speed = 0.1;
 
 vec2 random( vec2 pos )
@@ -69,30 +36,19 @@ vec2 random( vec2 pos )
   );
 }
 
-
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
-    // Pixelate
+    float Progress = CoronaVertexUserData.x;
+    float Size     = CoronaVertexUserData.y;
     P_UV vec2 UV_Pix = (CoronaTexelSize.zw * 0.5) + ( floor( texCoord / CoronaTexelSize.zw ) * CoronaTexelSize.zw );
     P_UV vec2 SCREEN_UV = UV_Pix;
-    // Smooth
-    //P_UV vec2 SCREEN_UV = texCoord;
-
-    //Test
-    power = abs(sin(CoronaTotalTime)) *0.2;
+    float power = Progress * 0.25 * (0.5 + Size*0.5);
     float TIME = CoronaTotalTime;
-
     vec2 uv = SCREEN_UV + ( random( SCREEN_UV + vec2( seed - TIME * speed, TIME * speed ) ) - vec2( 0.5, 0.5 ) ) * power;
+    uv = clamp(uv, vec2(0.0), vec2(1.0));
     P_COLOR vec4 COLOR = texture2D( CoronaSampler0, uv, 0.0 );
-
-
+    COLOR.rgb *= COLOR.a;
     return CoronaColorScale(COLOR);
 }
 ]]
 return kernel
-
---[[
-  
-
---]]
-

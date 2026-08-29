@@ -1,14 +1,11 @@
-
 --[[
   Origin Author: snesmocha
   https://godotshaders.com/author/snesmocha/
-  
-  tutorial followed from here:
-  https://www.youtube.com/watch?v=SCHdglr35pk
-
+  Fixed: vertexData intensity/size/tilt/speed were never read (globals
+  center/force/size/thickness uninitialized), so sprite was displaced
+  off-screen and appeared invisible. Now center=0.5, force=intensity,
+  size, thickness wired real-time.
 --]]
-
-
 
 local kernel = {}
 
@@ -18,84 +15,39 @@ kernel.group = "deform"
 kernel.name = "impact"
 kernel.isTimeDependent = true
 
--- Expose effect parameters using vertex data
 kernel.vertexData   = {
-  {
-    name = "intensity",
-    default = 0.65, 
-    min = 0,
-    max = 1,
-    index = 0,  -- This corresponds to "CoronaVertexUserData.x"
-  },
-  {
-    name = "size",
-    default = 0.1, 
-    min = 0,
-    max = 1,
-    index = 1,  -- This corresponds to "CoronaVertexUserData.y"
-  },
-  {
-    name = "tilt",
-    default = 0.2, 
-    min = 0.0,
-    max = 2.0,
-    index = 2,  -- This corresponds to "CoronaVertexUserData.z"
-  },
-  {
-    name = "speed",
-    default = 1.0, 
-    min = 0.1,
-    max = 10.0,
-    index = 3,  -- This corresponds to "CoronaVertexUserData.w"
-  },
+  { name = "Force",     default = 0.15, min = 0, max = 0.5, index = 0, },
+  { name = "Size",      default = 0.25, min = 0, max = 0.8, index = 1, },
+  { name = "Thickness", default = 0.12, min = 0.02, max = 0.4, index = 2, },
+  { name = "Speed",     default = 1,    min = 0, max = 10,  index = 3, },
 }
-
 
 kernel.fragment =
 [[
 
-vec2 center;
-float force;
-float size;
-float thickness;
-
-float screenHeight = 320;
-float screenWidth = 480;
-
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
-  //vec2 SCREEN_UV = vec2( texCoord.x/screenHeight, texCoord.y/screenWidth);
+  float force     = CoronaVertexUserData.x;
+  float size      = CoronaVertexUserData.y;
+  float thickness = CoronaVertexUserData.z;
+  // speed could drive time pulse if needed
+  // float speed = CoronaVertexUserData.w;
+
   vec2 SCREEN_UV = texCoord;
-
-
+  vec2 center = vec2(0.5, 0.5);
   float ratio = CoronaTexelSize.z / CoronaTexelSize.w;
-  vec2 scaledUV = (SCREEN_UV - vec2(0.5,0.0)) / vec2(ratio, 1) + vec2(0.5,0.0);
-  float mask = (1.0 - smoothstep(size-0.1,size, length(scaledUV - center))) * 
-  smoothstep(size-thickness-0.1,size-thickness, length(scaledUV - center));
-  vec2 disp = normalize(scaledUV - center) * force * mask;
-
-  P_COLOR vec4 texColor = texture2D( CoronaSampler0, SCREEN_UV - disp);
-  //texColor.rgb = vec3(mask);
-  
-
-  //COLOR = texture(SCREEN_TEXTURE,SCREEN_UV - disp);
-  //COLOR.rgb = vec3(mask);
-      
-    
-  return CoronaColorScale( texColor );
+  vec2 scaledUV = (SCREEN_UV - vec2(0.5,0.0)) / vec2(ratio, 1.0) + vec2(0.5,0.0);
+  // ring mask
+  float d = length(scaledUV - center);
+  float mask = (1.0 - smoothstep(size-0.08, size+0.08, d)) * smoothstep(size-thickness-0.08, size-thickness+0.08, d);
+  mask = clamp(mask, 0.0, 1.0);
+  vec2 disp = normalize(scaledUV - center + vec2(0.0001)) * force * mask;
+  // keep background visible where no displacement
+  vec2 uv = clamp(SCREEN_UV - disp, vec2(0.0), vec2(1.0));
+  P_COLOR vec4 texColor = texture2D(CoronaSampler0, uv);
+  texColor.rgb *= texColor.a;
+  return CoronaColorScale(texColor);
 }
 ]]
 
 return kernel
-
-
---[[
-
-
-
---]]
-
-
-
-
-

@@ -86,7 +86,7 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     //----------------------------------------------
     vec2 center = vec2(0.5);
     vec2 center_uv = normalize(UV - center);
-    float is = 1.0 - smoothstep(0.49*Progress, 0.5*Progress, distance(center, UV));
+    float is = 1.0 - smoothstep(max(0.49*Progress, 0.001), max(0.5*Progress, 0.002), distance(center, UV));
     
     vec2 frst_border = vec2(cos(Angle+Angle_Spread/2.0), sin(Angle+Angle_Spread/2.0));
     vec2 sec_boreder = vec2(cos(Angle-Angle_Spread/2.0), sin(Angle-Angle_Spread/2.0));

@@ -96,17 +96,18 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
   //----------------------------------------------
 
   vec4 texTo = colorBG;
+  vec4 base = texture2D(CoronaSampler0, p + progress*disp);
   vec4 texFrom = vec4(
   texture2D( CoronaSampler0, p + progress*disp * ( 1.0 - colorSeparation )).r,
-  texture2D( CoronaSampler0, p + progress*disp ).g,
+  base.g,
   texture2D( CoronaSampler0, p + progress*disp * ( 1.0 + colorSeparation )).b,
-  //texture2D(CoronaSampler0, UV).a
-  1.0
+  base.a
   );
 
   colorBG.rgb *= colorBG.a;
-  //COLOR = texTo*progress + texFrom*inv;
-  COLOR = texFrom * inv;
+  texTo.rgb *= texTo.a;
+  // correctly blend from->to; at progress 0 shows original, at 1 shows transparent (background visible)
+  COLOR = texTo * progress + texFrom * inv;
 
   //COLOR.a *= m;
   COLOR.rgb *= COLOR.a;

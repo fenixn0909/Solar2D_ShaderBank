@@ -84,10 +84,13 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
     P_UV vec2 SCREEN_UV = texCoord;
     P_COLOR vec4 COLOR;
 
-    //distortion = abs(sin(CoronaTotalTime))*10;
-    distortion = sin(CoronaTotalTime)*10;
-    //distortion = 1.1 - abs(sin(CoronaTotalTime))*1;
-    //distortion = 0.5;
+    float Intensity = CoronaVertexUserData.x;
+    float Size      = CoronaVertexUserData.y;
+    // tilt/speed drive subtle animate: distortion = base + sin(TIME*speed)*tilt
+    float Tilt      = CoronaVertexUserData.z;
+    float Speed     = CoronaVertexUserData.w;
+    distortion = (Intensity*30.0 + Size*10.0) + sin(CoronaTotalTime*Speed)*Tilt*5.0;
+    distortion = clamp(distortion, 0.1, 40.0);
     //----------------------------------------------
 
       vec2 xy = (SCREEN_UV * 2.0 - 1.0); // move origin of UV coordinates to center of screen

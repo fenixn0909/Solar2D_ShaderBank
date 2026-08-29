@@ -1,7 +1,6 @@
 local kernel = {}
 
 kernel.language = "glsl"
-
 kernel.category = "filter"
 kernel.group = "wobble"
 kernel.name = "water"
@@ -10,21 +9,27 @@ kernel.isTimeDependent = true
 
 kernel.vertexData =
 {
-  
+  { name = "Speed",     default = 1,   min = 0, max = 5,   index = 0, },
+  { name = "Frequency", default = 45,  min = 5, max = 100, index = 1, },
+  { name = "Amplitude", default = 0.002, min = 0, max = 0.01, index = 2, },
 }
 
 kernel.fragment =
 [[
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
-  P_DEFAULT vec2 uv = ( texCoord.xy / CoronaVertexUserData.xy );
-  uv.y += (cos((uv.y + (CoronaTotalTime * 0.04)) * 45.0) * 0.0019) +
-  (cos((uv.y + (CoronaTotalTime * 0.1)) * 10.0) * 0.002);
-    uv.x += (sin((uv.y + (CoronaTotalTime * 0.07)) * 15.0) * 0.0029) +
-  (sin((uv.y + (CoronaTotalTime * 0.1)) * 15.0) * 0.002);
-    P_COLOR vec4 texColor = texture2D(CoronaSampler0,uv);
+  float Speed     = CoronaVertexUserData.x;
+  float Frequency = CoronaVertexUserData.y;
+  float Amplitude = CoronaVertexUserData.z;
 
-    return CoronaColorScale( texColor );
+  P_UV vec2 uv = texCoord;
+  uv.y += (cos((uv.y + (CoronaTotalTime * 0.04 * Speed)) * Frequency) * Amplitude) +
+          (cos((uv.y + (CoronaTotalTime * 0.1 * Speed)) * 10.0) * Amplitude);
+  uv.x += (sin((uv.y + (CoronaTotalTime * 0.07 * Speed)) * 15.0) * Amplitude * 1.5) +
+          (sin((uv.y + (CoronaTotalTime * 0.1 * Speed)) * 15.0) * Amplitude);
+  uv = clamp(uv, vec2(0.0), vec2(1.0));
+  P_COLOR vec4 texColor = texture2D(CoronaSampler0, uv);
+  return CoronaColorScale( texColor );
 }
 ]]
 

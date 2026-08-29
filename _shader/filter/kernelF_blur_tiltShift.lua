@@ -30,44 +30,42 @@ kernel.language = "glsl"
 kernel.category = "filter"
 kernel.group = "blur"
 kernel.name = "tiltShift"
-
 kernel.vertexData =
 {
-  {
-    name = "intensity",
-    default = 0,
-    min = 0,
-    max = 1,
-    index = 0, -- v_UserData.x
-  },
+  { name = "Blur",      default = 1.5, min = 0, max = 5,   index = 0, },
+  { name = "Limit",     default = 0.3, min = 0, max = 0.5, index = 1, },
+  { name = "Intensity", default = 0.28, min = 0, max = 1,  index = 2, },
+  { name = "Debug",     default = 0,   min = 0, max = 1,  index = 3, },
 }
 
-kernel.isTimeDependent = true
-
+kernel.isTimeDependent = false
 
 kernel.fragment =
 [[
+
 P_COLOR vec3 tweener = vec3(1);
 //----------------------------------------------
 
-float limit = 0.3; //: hint_range(0.0,0.5) 
-float blur = 5; //: hint_range(0.0,5.0)
-float intensity = 0.28; //: hint_range (0.0, 0.28, 0.5)
+float limit; //: hint_range(0.0,0.5) 
+float blur; //: hint_range(0.0,5.0)
+float intensity; //: hint_range (0.0, 1)
 vec4 colorDB = vec4( 0.9, 0.5, 0.5, 1);
-uniform bool debug = true;
+float debug;
 
 
 
 //----------------------------------------------
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
+  // real-time params from vertexData
+  float blur      = CoronaVertexUserData.x;
+  float limit     = CoronaVertexUserData.y;
+  float intensity = CoronaVertexUserData.z;
+  float debug     = CoronaVertexUserData.w;
+
   P_UV vec2 UV = texCoord;
   P_UV vec2 SCREEN_UV = texCoord;
   P_COLOR vec4 COLOR;
-  P_DEFAULT float TIME = CoronaTotalTime;
-  //P_DEFAULT float alpha = abs(sin(CoronaTotalTime)) + 0.35;
-  intensity = sin(CoronaTotalTime);
-  intensity = 0.28;
   //strength = 0.6;
   //----------------------------------------------
   if (UV.y<limit){ 
@@ -76,29 +74,22 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
       vec4 color = texture2D(CoronaSampler0, SCREEN_UV, blur);
       COLOR = color;
       
-      if (debug==true){
-        //COLOR = vec4(1.0,1.0,1.0,1.0);
-        COLOR = colorDB;
-      }
-        
-      COLOR.a = _step ;
-
-      
-    } else if (UV.y > 1.0-limit) {
-        
-      float _step = smoothstep(UV.y,1.0-limit,1.0-intensity) ;
-      vec4 color = texture2D(CoronaSampler0, SCREEN_UV, blur);
-      COLOR = color;
-      
-      if (debug==true){
-        //COLOR = vec4(1.0,1.0,1.0,1.0);
+      if (debug > 0.5){
         COLOR = colorDB;
       }
       COLOR.a = _step;
-        
+    } else if (UV.y > 1.0-limit) {
+      float _step = smoothstep(UV.y,1.0-limit,1.0-intensity) ;
+      vec4 color = texture2D(CoronaSampler0, SCREEN_UV, blur);
+      COLOR = color;
+      if (debug > 0.5){
+        COLOR = colorDB;
+      }
+      COLOR.a = _step;
     }else{
-        COLOR.a = 0; 
-
+        // preserve original in focus band; opaque (alpha 1) not black
+        COLOR = texture2D(CoronaSampler0, SCREEN_UV);
+        COLOR.a = 1.0;
     }
 
 

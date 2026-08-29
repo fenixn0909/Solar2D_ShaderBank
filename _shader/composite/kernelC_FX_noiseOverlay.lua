@@ -23,6 +23,7 @@ kernel.vertexData =
   { name = "Move_X",  default = 1, min = -5, max = 5, index = 1, },
   { name = "Move_Y",  default = 0, min = -5, max = 5, index = 2, },
   { name = "Mix",  default = 0, min = 0, max = 1, index = 3, },
+  { name = "Progress", default = 1, min = 0, max = 1, index = 0, },
 } 
 
 kernel.fragment =

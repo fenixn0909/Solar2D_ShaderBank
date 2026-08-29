@@ -32,7 +32,7 @@ kernel.vertexData =
 {
   {
     name = "intensity",
-    default = 0,
+    default = 0.7,
     min = 0,
     max = 1,
     index = 0, -- v_UserData.x
@@ -58,10 +58,12 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
   //P_UV vec2 UV_Pix = (CoronaTexelSize.zw * 0.5) + ( floor( texCoord / CoronaTexelSize.zw ) * CoronaTexelSize.zw );
   P_COLOR vec4 COLOR;
 
-  temperature = sin(CoronaTotalTime*1);
+  float intensity = CoronaVertexUserData.x;
+  temperature = sin(CoronaTotalTime*1) * intensity;
   //temperature = 0.5;
   //----------------------------------------------
   vec4 input_color = texture2D( CoronaSampler0, UV, 0.0 );
+    if (input_color.a < 0.01) { P_COLOR vec4 COLOR = input_color; return CoronaColorScale(COLOR); }
     
   float grayscale_value = dot(input_color.rgb, vec3(0.299, 0.587, 0.114));
   vec3 sampled_color;

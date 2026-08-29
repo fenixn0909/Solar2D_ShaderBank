@@ -22,28 +22,11 @@ kernel.textureWrap = 'repeat'
 
 kernel.vertexData =
 {
-  {
-    name = "resolutionX",
-    default = 1,
-    min = 1,
-    max = 99,
-    index = 0, 
-  },
-  {
-    name = "resolutionY",
-    default = 1,
-    min = 1,
-    max = 99,
-    index = 1, 
-  },
+  { name = "ResX",     default = 1, min = 0.1, max = 5, index = 0, },
+  { name = "ResY",     default = 1, min = 0.1, max = 5, index = 1, },
+  { name = "Speed",    default = 1, min = 0, max = 5, index = 2, },
+  { name = "Scale",    default = 0.5, min = 0.1, max = 2, index = 3, },
 }
-
-kernel.vertexData =
-{
-  { name = "ResX",     default = 1, min = 0.001, max = 10, index = 0, },
-  { name = "ResY",    default =  1, min = 0.001, max = 10, index = 1, },
-  { name = "Frames",    default = 10, min = 0, max = 100, index = 2, },
-} 
 
 
 

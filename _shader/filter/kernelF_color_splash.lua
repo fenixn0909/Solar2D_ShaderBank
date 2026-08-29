@@ -33,23 +33,16 @@ kernel.isTimeDependent = true
 
 kernel.vertexData =
 {
-  {
-    name = "progress",
-    default = 1,
-    min = 0,
-    max = 1,
-    index = 0, 
-  },
+  { name = "Strength", default = 0.8, min = 0, max = 1, index = 0, },
+  { name = "Blend",    default = 1,   min = 0, max = 1, index = 1, },
 }
 
 
 kernel.fragment =
 [[
-//P_DEFAULT float progress = CoronaVertexUserData.x;
-//----------------------------------------------
 uniform bool hide = false;
 uniform vec4 color = vec4(1,0,1,1); //: hint_color 
-float strength = .8;
+float strength;
 
 
 //----------------------------------------------
@@ -59,11 +52,9 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
   //P_UV vec2 UV_Pix = (CoronaTexelSize.zw * 0.5) + ( floor( texCoord / CoronaTexelSize.zw ) * CoronaTexelSize.zw );
 
   P_UV vec2 TEXTURE_PIXEL_SIZE = CoronaTexelSize.zw;
-  //P_DEFAULT float TIME = CoronaTotalTime;
   P_COLOR vec4 COLOR;
-  //progress = abs(sin(CoronaTotalTime));
-  //strength = abs(tan(CoronaTotalTime)) -0.0;
-  strength = abs(sin(CoronaTotalTime*5)) -0.0;
+  strength = CoronaVertexUserData.x;
+  float Blend = CoronaVertexUserData.y;
   //----------------------------------------------
 
     vec4 pixel = texture2D(CoronaSampler0, UV);

@@ -39,32 +39,32 @@ kernel.isTimeDependent = true
 -- Expose effect parameters using vertex data
 kernel.vertexData   = {
   {
-    name = "intensity",
-    default = 0.65, 
-    min = 0,
-    max = 1,
-    index = 0,  -- This corresponds to "CoronaVertexUserData.x"
+    name = "Magnification",
+    default = 2.0,
+    min = 1.0,
+    max = 20.0,
+    index = 0,
   },
   {
-    name = "size",
-    default = 0.1, 
-    min = 0,
-    max = 1,
-    index = 1,  -- This corresponds to "CoronaVertexUserData.y"
-  },
-  {
-    name = "tilt",
-    default = 0.2, 
+    name = "Roundness",
+    default = 1.0,
     min = 0.0,
     max = 2.0,
-    index = 2,  -- This corresponds to "CoronaVertexUserData.z"
+    index = 1,
   },
   {
-    name = "speed",
-    default = 1.0, 
-    min = 0.1,
-    max = 10.0,
-    index = 3,  -- This corresponds to "CoronaVertexUserData.w"
+    name = "Circle_Radius",
+    default = 0.4,
+    min = 0.05,
+    max = 0.71,
+    index = 2,
+  },
+  {
+    name = "Outline_Thickness",
+    default = 0.02,
+    min = 0.0,
+    max = 0.1,
+    index = 3,
   },
 }
 
@@ -121,12 +121,12 @@ P_POSITION vec2 VertexKernel( P_POSITION vec2 position )
 kernel.fragment =
 [[
 
-float magnification = 1.2; // :hint_range(0.0, 400.0)
+float magnification = CoronaVertexUserData.x;
 bool filtering = true;
 bool is_round = true;
-float roundness = 100.0; //:hint_range(0.0, 2.0)
-float circle_radius = 0.3; //:hint_range(0.0, 0.71) 
-float outline_thickness = 0.00; //:hint_range(0.0, 0.1)
+float roundness = CoronaVertexUserData.y;
+float circle_radius = CoronaVertexUserData.z;
+float outline_thickness = CoronaVertexUserData.w;
 vec4 outline_color = vec4(0.4, 0.0, 0.0, 1.0); //:hint_color
 
 varying P_UV vec2 center_pos;

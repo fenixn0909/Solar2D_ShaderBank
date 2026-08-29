@@ -1,99 +1,54 @@
-
 --[[
-  Origin Author: QueenOfSquiggles
-  https://godotshaders.com/shader/fnaf-faked-3d-displacement-shader/
-  
-
-  I’ve seen several posts on the godot subreddit asking how to create the fake 3D effect from the Five Nights At Freddy’s series. I was a bit curious about how to do this and did a bit of digging. (Sources linked at bottom)
-
-  Simply, it works using a “Displacement Map”, which is basically a texture where each pixel is a greyscale value from 0.0 to 1.0 for how much to displace that pixel. I highly recommend using a CurveTexture which will let you manipulate the rate of distortion at the edges more easily.
-
-  The `scroll` uniform allows you to scroll to the left or right. Setting up a system in the code lets you “look” left and right in the fake 3D space.
-
-  This system seems to work with the source FNAF texture as well as some HDRIs downloaded from ambientcg. Feel free to remix if you feel like it could be improved! <3
-
-  If you happen to use this to make something cool, I’d love to see it! (@OfSquiggles on twitter)
-
+  Origin Author: QueenOfSquiggles https://godotshaders.com/shader/fnaf-faked-3d-displacement-shader/
+  Fixed: had hardcoded scroll = sin(TIME)*0.1 not tweakable, and
+  texDiffRatio only X/Y. Now exposes Scroll and Displacement_Scale
+  as real-time params, and background remains visible where displaced
+  UV is outside 0..1.
 --]]
 
-
-
 local kernel = {}
+
 kernel.language = "glsl"
 kernel.category = "composite"
 kernel.group = "deform"
 kernel.name = "fake3d"
-
---Test
 kernel.isTimeDependent = true
 
 kernel.vertexData   = {
-  {
-    name = "texDiffRatioX",
-    default = 1,
-    min = 0,
-    max = 32,  
-    index = 0,    
-  },
-  {
-    name = "texDiffRatioY",
-    default = 1,
-    min = 0,
-    max = 32,  
-    index = 1,    
-  },
-  
+  { name = "Scroll",      default = 0,   min = -0.5, max = 0.5, index = 0, },
+  { name = "Disp_Scale",  default = 1,   min = 0, max = 3, index = 1, },
+  { name = "Scale",       default = 0.5, min = 0.1, max = 1, index = 2, },
 }
-
 
 kernel.fragment =
 [[
-vec2 texDiffRatio = vec2( CoronaVertexUserData.x, CoronaVertexUserData.y );
 
-//----------------------------------------------
-
-// the left/right look amount. Ideally clamp this externally to prevent viewing edges
-float scroll = 0.0;
-
-// keep positive to maintain pseudo3D effect.
-uniform float displacement_scale = 1.0;
-
-// easiest to just make this a curve texture, but making PNG gives a ton of control across the Y axis. Curve texture is just super smooth and doesn't have any issues with tearing.
-//uniform sampler2D displacement_map : hint_black;
-
-
-//----------------------------------------------
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
+  float Scroll     = CoronaVertexUserData.x;
+  float Disp_Scale = CoronaVertexUserData.y;
+  float Scale      = CoronaVertexUserData.z;
+  // allow auto scroll if Speed param is 0
+  float autoScroll = sin(CoronaTotalTime * 0.5) * 0.02;
+  float scroll = Scroll + autoScroll * step(abs(Scroll), 0.001);
+
   P_UV vec2 UV = texCoord;
-  P_UV vec2 uvTex = UV * texDiffRatio;
-
-  P_COLOR vec4 COLOR;
-  scroll = sin(CoronaTotalTime) * 0.1;
-  //----------------------------------------------
-  // Scale
-  float _scale = 0.5;
-  vec2 uv = (UV - 0.5) * _scale + 0.5;
-
-  uv = uv + vec2(scroll, 0.0); // scroll the UV
-  float displacement = texture2D(CoronaSampler1, uvTex).r; // pull amount from map
-  displacement *= displacement_scale; // scale
-  displacement *= (0.5 - uv.y); // transform based on distance from center horizontal
-  COLOR = texture2D(CoronaSampler0, uv + vec2(0.0, displacement));// pull source image, displaced by scroll and vertical stretch.
-  
-  
-  //COLOR = texture2D(CoronaSampler0, uv );// pull source image, displaced by scroll and vertical stretch.
-  
-  //----------------------------------------------
-  
+  vec2 uv = (UV - 0.5) * Scale + 0.5;
+  uv = uv + vec2(scroll, 0.0);
+  float disp = texture2D(CoronaSampler1, uv).r;
+  disp *= Disp_Scale;
+  disp *= (0.5 - uv.y);
+  vec2 displaced = uv + vec2(0.0, disp);
+  // keep background where displaced outside
+  if (displaced.x < 0.0 || displaced.x > 1.0 || displaced.y < 0.0 || displaced.y > 1.0) {
+      P_COLOR vec4 COLOR = texture2D(CoronaSampler0, UV);
+      COLOR.rgb *= COLOR.a;
+      return CoronaColorScale(COLOR);
+  }
+  P_COLOR vec4 COLOR = texture2D(CoronaSampler0, displaced);
+  COLOR.rgb *= COLOR.a;
   return CoronaColorScale(COLOR);
 }
 ]]
 
 return kernel
-
---[[
-
---]]
-
-

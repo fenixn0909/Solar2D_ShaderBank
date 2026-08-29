@@ -14,15 +14,37 @@ kernel.name = "radialShine"
 
 kernel.isTimeDependent = true
 
-kernel.vertexData =
+kernel.uniformData =
 {
-  {
-    name = "resolutionX",
-    default = 1,
-    min = 1,
-    max = 99,
-    index = 0, 
-  },
+    {
+        index = 0,
+        type = "mat4",  -- vec4 x 4
+        name = "uniSetting",
+        paramName = {
+            'Spread','Cutoff','Size','Speed',
+            'Ray1_Density','Ray2_Density','Ray2_Intensity','Core_Intensity',
+            'Seed','Hdr','','',
+            '','','','',
+        },
+        default = {
+            .2, 2.1, .5, 1,
+            8, 10, .13, .2,
+            15, 0, 0,0,
+            0,0,0,0,
+        },
+        min = {
+            .05, .5, .1, 0,
+            1, 1, 0, 0,
+            0, 0, 0,0,
+            0,0,0,0,
+        },
+        max = {
+            1, 4, 2, 5,
+            30, 30, 1, 1,
+            100, 1, 1,1,
+            1,1,1,1,
+        },
+    },
 }
 
 
@@ -31,16 +53,18 @@ kernel.fragment =
 
 //uniform sampler2D SCREEN_TEXTURE : hint_screen_texture, filter_linear_mipmap;
 //uniform sampler2D gradient;
-uniform float spread = 0.2;
-uniform float cutoff = 2.1;
-uniform float size = .5;
-uniform float speed = 1.0;
-uniform float ray1_density = 8.0;
-uniform float ray2_density = 10.0;
-uniform float ray2_intensity = .13;
-uniform float core_intensity = 0.2;
-uniform bool hdr = false;
-uniform float seed = 15.0;
+uniform P_COLOR mat4 u_UserData0;
+
+float spread          = u_UserData0[0][0];
+float cutoff          = u_UserData0[0][1];
+float size             = u_UserData0[0][2];
+float speed             = u_UserData0[0][3];
+float ray1_density     = u_UserData0[1][0];
+float ray2_density     = u_UserData0[1][1];
+float ray2_intensity   = u_UserData0[1][2];
+float core_intensity   = u_UserData0[1][3];
+float seed              = u_UserData0[2][0];
+bool hdr = u_UserData0[2][1] > 0.5;
 
 const float PI = 3.14159265359;
 

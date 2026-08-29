@@ -15,7 +15,7 @@ local kernel = {}
 kernel.language = "glsl"
 kernel.category = "filter"
 kernel.group = "PP" --Postprocess
-kernel.name = "dotLineDither"
+kernel.name = "barrelChroma"
 
 
 kernel.isTimeDependent = true

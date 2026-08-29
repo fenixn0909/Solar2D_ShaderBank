@@ -95,7 +95,10 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     for( float i = 0.0; i < Lines; i+= 1.0 ){
         color += draw_line( uv, Col_Line.rgb, shift + i*.4, Freq );
     }
-    COLOR = vec4( color * Bright, 1.0);
+    // was opaque black (alpha 1) even where no lines – made background invisible
+    float alpha = clamp( dot(color, vec3(0.299,0.587,0.114)) * 2.0, 0.0, 1.0 );
+    COLOR = vec4( color * Bright, alpha);
+    COLOR.rgb *= COLOR.a;
 
     //----------------------------------------------
 

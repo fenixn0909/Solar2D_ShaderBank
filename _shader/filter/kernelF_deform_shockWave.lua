@@ -105,8 +105,10 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
   vec4 red = texture2D(CoronaSampler0, final_st + abber_vec);
   vec4 blue = texture2D(CoronaSampler0, final_st - abber_vec);
   vec4 ori = texture2D(CoronaSampler0, final_st);
-  P_COLOR vec4 COLOR = vec4(red.r, ori.g, blue.b, 1.0);
-  //COLOR.rgb *= COLOR.a;
+  vec4 origTex = texture2D(CoronaSampler0, texCoord);
+  // preserve original alpha outside mask; transparent where mask=0 (origTex.a)
+  P_COLOR vec4 COLOR = vec4(red.r, ori.g, blue.b, mix(origTex.a, ori.a, mask));
+  COLOR.rgb *= COLOR.a;
 
 
   return CoronaColorScale( COLOR );

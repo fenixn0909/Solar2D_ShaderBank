@@ -69,7 +69,7 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
   P_COLOR vec4 colorSpr = texture2D(CoronaSampler0, uvSpr);
   P_COLOR vec4 colorNoise = texture2D(CoronaSampler1, uvNoise);
 
-  slider = sin(CoronaTotalTime);
+  // slider driven by Progress param (CoronaVertexUserData.w), keep as is
   
   float aInner = step(colorNoise.r, slider  );
   float aOutter = step(colorNoise.r, slider+strokeSize  );
