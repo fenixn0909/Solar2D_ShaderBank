@@ -15,14 +15,6 @@ kernel.name = "windSwayPurga"
 
 kernel.isTimeDependent = true
 
-kernel.vertexData =
-{
-  { name = "Start_Y",   default = 0.3, min = 0, max = 1, index = 0, },
-  { name = "Strength",  default = 0.15, min = 0, max = 1, index = 1, },
-  { name = "Curve",     default = 1.5, min = 0, max = 3, index = 2, },
-  { name = "Speed",     default = 2,   min = 0, max = 10, index = 3, },
-}
-
 kernel.uniformData =
 {
     {
@@ -30,26 +22,26 @@ kernel.uniformData =
         type = "mat4",
         name = "uniWind",
         paramName = {
-            'Wind_Start','','','',
-            '','','','',
+            'Wind_Start','Start_Y','Strength','Curve',
+            'Speed','','','',
             '','','','',
             '','','','',
         },
-        default = { 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, },
-        min =     { -1.57,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, },
-        max =     { 1.57,0,0,0, 1,1,1,1, 1,1,1,1, 1,1,1,1, },
+        default = { 0,.3,.15,1.5, 2,0,0,0, 0,0,0,0, 0,0,0,0, },
+        min =     { -1.57,0,0,0,  0,0,0,0, 0,0,0,0, 0,0,0,0, },
+        max =     { 1.57,1,1,3,   10,1,1,1, 1,1,1,1, 1,1,1,1, },
     },
 }
 
 kernel.fragment =
 [[
 
-float Start_Y   = CoronaVertexUserData.x;
-float Strength  = CoronaVertexUserData.y;
-float Curve     = CoronaVertexUserData.z;
-float Speed     = CoronaVertexUserData.w;
 uniform P_COLOR mat4 u_UserData0;
 float Wind_Start= u_UserData0[0][0];
+float Start_Y   = u_UserData0[0][1];
+float Strength  = u_UserData0[0][2];
+float Curve     = u_UserData0[0][3];
+float Speed     = u_UserData0[1][0];
 float TIME = CoronaTotalTime;
 
 P_COLOR vec4 FragmentKernel( P_UV vec2 UV )

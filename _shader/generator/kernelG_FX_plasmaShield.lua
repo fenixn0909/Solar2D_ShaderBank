@@ -85,7 +85,8 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
   
     //----------------------------------------------
     vec2 center = vec2(0.5);
-    vec2 center_uv = normalize(UV - center);
+    vec2 delta = UV - center;
+    vec2 center_uv = length(delta) > 0.0001 ? normalize(delta) : vec2(1.0, 0.0);
     float is = 1.0 - smoothstep(max(0.49*Progress, 0.001), max(0.5*Progress, 0.002), distance(center, UV));
     
     vec2 frst_border = vec2(cos(Angle+Angle_Spread/2.0), sin(Angle+Angle_Spread/2.0));
@@ -106,10 +107,10 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     
     // how close to frontier is
     float border_factor = 1.0 - distance(2.0*(UV - center), center_uv);
-    border_factor = pow(border_factor, Border_Offset*50.0); // speeding up center fading
+    border_factor = pow(max(border_factor, 0.0), Border_Offset*50.0); // speeding up center fading, clamped to >=0 since pow() of a negative base is undefined
     
     // how close to radial center is
-    float radial_center_factor = 1.0 - distance(center_uv, radial_center)/distance(frst_border, radial_center);
+    float radial_center_factor = 1.0 - distance(center_uv, radial_center)/max(distance(frst_border, radial_center), 0.001);
     
     // how close ro radial edges is
     float edge_radial_factor = (1.0 - radial_center_factor) * Edges_Value;

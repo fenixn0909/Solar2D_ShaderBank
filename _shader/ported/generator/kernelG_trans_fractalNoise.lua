@@ -9,6 +9,19 @@
 
     Direct port, no texture needed - pure generator, matches the
     original (only its own procedural noise, no external samplers).
+
+    Fixed a real bug from the initial port: background_threshold and
+    color_threshold looked like independent tunables and were exposed
+    as separate sliders, but they aren't independent in the original -
+    the author's own Godot integration code computes both FROM progress
+    every frame via a Tween (background_threshold =
+    abs(1-progress*2)-0.5, color_threshold = min(1,abs(-4+progress*8))
+    *0.48), sweeping progress 0->0.5 to cover the screen and 0.5->1.0
+    to dissipate. Leaving them as static sliders at their defaults (0
+    and 0.24) meant the reveal shape was wrong at every progress value
+    except by coincidence - it never properly swept across the screen.
+    Both are now computed internally from Progress, matching the
+    original's actual behavior; only Progress is exposed.
 --]]
 
 
@@ -29,13 +42,13 @@ kernel.uniformData =
         name = "uniSetting",
         paramName = {
             'Progress','Speed','Pixelation_X','Pixelation_Y',
-            'Zoom','Background_Threshold','Color_Threshold','Seed',
-            'Color_R','Color_G','Color_B','Color_A',
+            'Zoom','Seed','Color_R','Color_G',
+            'Color_B','Color_A','','',
             '','','','',
         },
-        default = { 0,.1,2,2,  2,0,.24,0,  0,0,0,1,  0,0,0,0, },
-        min =     { 0,0,1,1,   .5,-2,0,0,  0,0,0,0,  0,0,0,0, },
-        max =     { 1,1,8,8,   6,1,1,10,   1,1,1,1,  1,1,1,1, },
+        default = { 0,.1,2,2,  2,0,0,0,  0,1,0,0,  0,0,0,0, },
+        min =     { 0,0,1,1,   .5,0,0,0, 0,0,0,0,  0,0,0,0, },
+        max =     { 1,1,8,8,   6,10,1,1, 1,1,1,1,   1,1,1,1, },
     },
 }
 
@@ -48,10 +61,13 @@ float Progress              = u_UserData0[0][0];
 float Speed                  = u_UserData0[0][1];
 vec2  Pixelation              = vec2( u_UserData0[0][2], u_UserData0[0][3] );
 float Zoom                    = u_UserData0[1][0];
-float Background_Threshold   = u_UserData0[1][1];
-float Color_Threshold        = u_UserData0[1][2];
-float Seed                    = u_UserData0[1][3];
-vec4  Color                    = vec4( u_UserData0[2][0], u_UserData0[2][1], u_UserData0[2][2], u_UserData0[2][3] );
+float Seed                    = u_UserData0[1][1];
+vec4  Color                    = vec4( u_UserData0[1][2], u_UserData0[1][3], u_UserData0[2][0], u_UserData0[2][1] );
+
+// computed from Progress, matching the original's own Tween callback -
+// see header
+float Background_Threshold = abs( 1.0 - Progress * 2.0 ) - 0.5;
+float Color_Threshold      = min( 1.0, abs( -4.0 + Progress * 8.0 ) ) * 0.48;
 
 const mat2 mtx = mat2( vec2( 0.80, -0.60 ), vec2( 0.60, 0.80 ) );
 float TIME = CoronaTotalTime;

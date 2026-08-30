@@ -15,11 +15,6 @@ kernel.group = "color"
 kernel.name = "flash"
 kernel.isTimeDependent = true
 
-kernel.vertexData = {
-  { name = "Intensity", default = 0.7, min = 0, max = 1, index = 0, },
-  { name = "Speed",     default = 1,   min = 0, max = 10, index = 1, },
-}
-
 kernel.uniformData =
 {
     {
@@ -28,13 +23,13 @@ kernel.uniformData =
         name = "uniColor",
         paramName = {
             'Flash_R','Flash_G','Flash_B','Flash_A',
-            '','','','',
+            'Intensity','Speed','','',
             '','','','',
             '','','','',
         },
-        default = { 1,0,0,1, 0,0,0,0, 0,0,0,0, 0,0,0,0, },
+        default = { 1,0,0,1, .7,1,0,0, 0,0,0,0, 0,0,0,0, },
         min =     { 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, },
-        max =     { 1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1, },
+        max =     { 1,1,1,1, 1,10,1,1, 1,1,1,1, 1,1,1,1, },
     },
 }
 
@@ -43,11 +38,11 @@ kernel.fragment =
 
 uniform P_COLOR mat4 u_UserData0;
 vec4 Flash_Color = vec4(u_UserData0[0][0], u_UserData0[0][1], u_UserData0[0][2], u_UserData0[0][3]);
+float Intensity = u_UserData0[1][0];
+float Speed     = u_UserData0[1][1];
 
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
-  float Intensity = CoronaVertexUserData.x;
-  float Speed     = CoronaVertexUserData.y;
   P_COLOR vec4 finColor = texture2D(CoronaSampler0, texCoord);
   float pulse = abs(cos(CoronaTotalTime * Speed));
   finColor.rgb += Flash_Color.rgb * pulse * Intensity * finColor.a;

@@ -66,7 +66,7 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     col = col * 10.0 * Saturation - 5.0 + pattern;
     #endif
 
-    P_COLOR vec4 COLOR = vec4(col, 1.0);
+    P_COLOR vec4 COLOR = vec4(col, texture2D(CoronaSampler0, UV).a);
     COLOR.rgb *= COLOR.a;
     return CoronaColorScale(COLOR);
 }

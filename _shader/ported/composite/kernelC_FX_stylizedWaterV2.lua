@@ -41,37 +41,29 @@ kernel.name = "stylizedWaterV2"
 
 kernel.isTimeDependent = true
 
-kernel.vertexData =
-{
-  { name = "Intensity",       default = .5,  min = 0, max = 1,  index = 0, },
-  { name = "Highlight_Scale", default = 1,   min = .1, max = 3, index = 1, },
-  { name = "Clarity",         default = .65, min = 0, max = 1,  index = 2, },
-  { name = "Speed",           default = 1,   min = 0, max = 3,  index = 3, },
-}
-
 kernel.uniformData =
 {
     {
         index = 0,
         type = "mat4",
-        name = "uniColor",
-        paramName = { 'Water_Color_R','Water_Color_G','Water_Color_B','', '','','','', '','','','', '','','','', },
-        default =   { .105, .15, .118, 0,  0,0,0,0,  0,0,0,0,  0,0,0,0, },
-        min =       { 0,0,0,0,  0,0,0,0,  0,0,0,0,  0,0,0,0, },
-        max =       { 1,1,1,1,  1,1,1,1,  1,1,1,1,  1,1,1,1, },
+        name = "uniSetting",
+        paramName = { 'Intensity','Highlight_Scale','Clarity','Speed', 'Water_Color_R','Water_Color_G','Water_Color_B','', '','','','', '','','','', },
+        default =   { .5,1,.65,1,  .105,.15,.118,0,  0,0,0,0,  0,0,0,0, },
+        min =       { 0,.1,0,0,    0,0,0,0,          0,0,0,0,  0,0,0,0, },
+        max =       { 1,3,1,3,     1,1,1,1,          1,1,1,1,  1,1,1,1, },
     },
 }
 
 kernel.fragment =
 [[
 
-float Intensity       = CoronaVertexUserData.x;
-float Highlight_Scale = CoronaVertexUserData.y;
-float Clarity         = CoronaVertexUserData.z;
-float Speed            = CoronaVertexUserData.w;
-
 uniform P_COLOR mat4 u_UserData0;
-vec3 Water_Color = vec3( u_UserData0[0][0], u_UserData0[0][1], u_UserData0[0][2] );
+
+float Intensity       = u_UserData0[0][0];
+float Highlight_Scale = u_UserData0[0][1];
+float Clarity         = u_UserData0[0][2];
+float Speed            = u_UserData0[0][3];
+vec3 Water_Color = vec3( u_UserData0[1][0], u_UserData0[1][1], u_UserData0[1][2] );
 
 const int MAX_RADIUS = 2;
 const float HASHSCALE1 = 0.1031;

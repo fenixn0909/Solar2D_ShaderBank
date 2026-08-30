@@ -21,43 +21,35 @@ kernel.name = "glitchCT"
 kernel.isTimeDependent = true
 
 
-kernel.vertexData   = {
-  {
-    name    = "r",
-    default = 0,
-    min     = 0,
-    max     = 1,
-    index   = 0,
-    },{
-    name    = "g",
-    default = 0,
-    min     = 0,
-    max     = 1,
-    index   = 1,
-    },{
-    name    = "b",
-    default = 0,
-    min     = 0,
-    max     = 1,
-    index   = 2,
-    },{
-    name    = "size",
-    default = 1,
-    min     = 0,
-    max     = 4,
-    index   = 3,
-  },
+kernel.uniformData = {
+    {
+        index = 0,
+        type = "mat4",
+        name = "uniSetting",
+        paramName = {
+            'Progress','Red_Displacement','Green_Displacement','Blue_Displacement',
+            'Intensity','Scan_Effect','Distortion_Effect','Negative_Effect',
+            '','','','',
+            '','','','',
+        },
+        default = { 1,.5,3,10,  100,.2,1,1,  0,0,0,0,  0,0,0,0, },
+        min =     { 0,-1,-1,-1, 0,0,0,0,      0,0,0,0,  0,0,0,0, },
+        max =     { 1,1,1,1,    300,1,1,1,    1,1,1,1,  1,1,1,1, },
+    },
 }
 kernel.fragment = 
 [[
-uniform float red_displacement = 0.5; //: hint_range(-1.0,1.0) 
-uniform float green_displacement = 3; //: hint_range(-1.0,1.0)
-uniform float blue_displacement = 10; //: hint_range(-1.0,1.0) 
-float ghost = 0.0; //: hint_range(0.0, 1.0)
-uniform float intensity = 100; //: hint_range(0.0,1.0) 
-float scan_effect = 0.2; //: hint_range(0.0,1.0) 
-float distortion_effect = 1.0; //: hint_range(0.0,1.0)
-float negative_effect = 1.0; // : hint_range(0.0,1.0)
+uniform P_COLOR mat4 u_UserData0;
+
+float Progress             = u_UserData0[0][0];
+float red_displacement     = u_UserData0[0][1];
+float green_displacement   = u_UserData0[0][2];
+float blue_displacement    = u_UserData0[0][3];
+float intensity             = u_UserData0[1][0];
+float scan_effect           = u_UserData0[1][1];
+float distortion_effect     = u_UserData0[1][2];
+float negative_effect       = u_UserData0[1][3];
+float ghost = 0.0;
 
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
@@ -86,7 +78,8 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
   COLOR.g = (1.0-green_displacement)*baseTexture.g +  green_displacement*texture2D(CoronaSampler0, UV+vec2(- 0.05, sin(TIME*intensity) *v_offRate- 0.05 )  ).g;
   COLOR.b = (1.0-blue_displacement)*baseTexture.b + blue_displacement*texture2D(CoronaSampler0, UV+vec2(sin(TIME*intensity)*v_offRate - v_offSet, cos(TIME*intensity)*0.1) + v_offSet ).b;
   COLOR = COLOR + texture2D(CoronaSampler0, UV + UV*ghost)*ghost;
-  //COLOR.rgb *= COLOR.a;
+  COLOR = mix( baseTexture, COLOR, Progress );
+  COLOR.rgb *= COLOR.a;
 
   return CoronaColorScale(COLOR);
 }

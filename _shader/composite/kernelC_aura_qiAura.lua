@@ -40,25 +40,25 @@ kernel.uniformData   = {
         paramName = {
             'Progress','Tilling','TextureLoadMult','TexNoiseScaler',
             'MovementDirSpeed_X','MovementDirSpeed_Y','MovementDirSpeed2_X','MovementDirSpeed2_Y',
-            'ScaleMult_X','ScaleMult_Y','','',
+            'ScaleMult_X','ScaleMult_Y','Outline_Width','Outline_Softness',
             '','','','',
         },
         default = {
             1, 26, 8, .8,
             -.6, 1, .6, 1,
-            1, 1, 0,0,
+            1, 1, .06, .04,
             0,0,0,0,
         },
         min = {
             0, 1, 0, .1,
             -3, -3, -3, -3,
-            .1, .1, 0,0,
+            .1, .1, .01, .005,
             0,0,0,0,
         },
         max = {
             2, 60, 10, 3,
             3, 3, 3, 3,
-            2, 2, 1,1,
+            2, 2, .3, .2,
             1,1,1,1,
         },
     },
@@ -78,6 +78,8 @@ uniform vec2 Noise_Seed = vec2(1.0);
 
 uniform P_DEFAULT float texNoiseScaler = 0.8;
 vec2 ScaleMult = vec2( u_UserData0[2][0], u_UserData0[2][1] );
+float Outline_Width    = u_UserData0[2][2];
+float Outline_Softness = u_UserData0[2][3];
 
 
 //GradientColors
@@ -114,7 +116,21 @@ float noise(vec2 uv) {
     // Ajustamos para que el resultado esté en el rango de 0.0 a 1.0
     return (final_value + 1.0) * 0.5;
 }
-vec4 AuraEffect(vec2 uv, vec4 CurrentColor, sampler2D OriginTexTure){
+float sprite_edge_proximity(sampler2D spr, vec2 uv, float width, float softness){
+  // ring-sample the sprite's own alpha around this pixel - if any sample
+  // lands on the sprite, we're near its silhouette; fade out with distance
+  float best = 0.0;
+  for (int i = 0; i < 8; i++){
+    float a = float(i) * 0.7853981634; // 2*PI/8
+    vec2 dir = vec2(cos(a), sin(a));
+    float outerA = texture2D(spr, uv + dir * width).a;
+    float innerA = texture2D(spr, uv + dir * width * 0.5).a;
+    best = max(best, max(outerA, innerA));
+  }
+  return smoothstep(0.0, softness, best);
+}
+
+vec4 AuraEffect(vec2 uv, vec4 CurrentColor, sampler2D OriginTexTure, float edgeMask){
   vec2 TimeUV = MovementDirSpeed * TIME;//direction
   vec2 TimeUV2 = MovementDirSpeed2 * TIME;//direction
   vec2 ScaleMultFractment = (1.0 - ScaleMult)/2.0;//Scale the outline
@@ -128,7 +144,7 @@ vec4 AuraEffect(vec2 uv, vec4 CurrentColor, sampler2D OriginTexTure){
   
 
   vec4 sil = GradientColors * noise(uv * Tilling - TimeUV);
-  sil.a = alpha.a * noise(uv * Tilling + TimeUV) * noise(uv * Tilling + TimeUV2) * 5.0;
+  sil.a = alpha.a * noise(uv * Tilling + TimeUV) * noise(uv * Tilling + TimeUV2) * 5.0 * edgeMask;
   //return sil;
   //return sil * Progress;
   //return GradientColors;
@@ -146,9 +162,10 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     P_COLOR vec4 colorSpr = texture2D(CoronaSampler0, uvSpr);
     //P_COLOR vec4 colorNoise = texture2D(CoronaSampler1, uvNoise);
 
+    float edgeMask = sprite_edge_proximity(CoronaSampler0, uvSpr, Outline_Width, Outline_Softness);
 
     //P_COLOR vec4 COLOR = AuraEffect(UV, colorSpr, colorNoise);
-    P_COLOR vec4 COLOR = AuraEffect(UV, colorSpr, CoronaSampler1);
+    P_COLOR vec4 COLOR = AuraEffect(UV, colorSpr, CoronaSampler1, edgeMask);
     
     //----------------------------------------------
     //COLOR.r = 1.0;

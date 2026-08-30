@@ -61,18 +61,22 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
     //vec2 uv = fragCoord/iResolution.xy;
     vec2 uv = fragCoord;
 
-    vec3 col = texture2D(CoronaSampler0, uv).rgb;
+    vec4 srcSample = texture2D(CoronaSampler0, uv);
+    vec3 col = srcSample.rgb;
     
     // Use +-uv.x to go LR, +-uv.y go UD
     float l = sin((iTime * 0.2 - uv.y) * 20.0);
     l = l * 0.5 + 0.5;
     l = pow(l, 2.0);
     
-    col *= (l * shift) + offset;
+    float divisor = (l * shift) + offset;
+    divisor = abs(divisor) < 0.1 ? ( divisor < 0.0 ? -0.1 : 0.1 ) : divisor; // guard against the exact zero-crossing
+    col *= divisor;
     col = floor(col);
-    col /= (l * shift) + offset;
+    col /= divisor;
     
-    COLOR = vec4(col,1.0);
+    COLOR = vec4(col, srcSample.a);
+    COLOR.rgb *= COLOR.a;
 
   //----------------------------------------------
   //COLOR.a *= alpha;

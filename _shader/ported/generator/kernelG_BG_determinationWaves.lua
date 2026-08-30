@@ -14,13 +14,6 @@ kernel.name = "determinationWaves"
 
 kernel.isTimeDependent = true
 
-kernel.vertexData =
-{
-  { name = "Speed",     default = 1.5, min = 0, max = 5, index = 0, },
-  { name = "Bar_Height",default = 0.03, min = 0.01, max = 0.1, index = 1, },
-  { name = "Alpha",     default = 1,   min = 0, max = 1, index = 2, },
-}
-
 kernel.uniformData =
 {
     {
@@ -29,13 +22,13 @@ kernel.uniformData =
         name = "uniWave",
         paramName = {
             'Height_Limit','Color_Speed','Follow_Strength','Fade_Strength',
-            'Use_Rgb','','','',
+            'Use_Rgb','Speed','Bar_Height','Alpha',
             '','','','',
             '','','','',
         },
-        default = { .5, 1, .7, 2, 1,0,0,0, 0,0,0,0, 0,0,0,0, },
-        min =     { 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, },
-        max =     { 1,5,1,5, 1,1,1,1, 1,1,1,1, 1,1,1,1, },
+        default = { .5, 1, .7, 2, 1,1.5,.03,1, 0,0,0,0, 0,0,0,0, },
+        min =     { 0,0,0,0, 0,0,.01,0, 0,0,0,0, 0,0,0,0, },
+        max =     { 1,5,1,5, 1,5,.1,1, 1,1,1,1, 1,1,1,1, },
     },
     {
         index = 1,
@@ -70,9 +63,9 @@ kernel.uniformData =
 kernel.fragment =
 [[
 
-float Speed      = CoronaVertexUserData.x;
-float Bar_Height = CoronaVertexUserData.y;
-float Alpha      = CoronaVertexUserData.z;
+float Speed      = u_UserData0[1][1];
+float Bar_Height = u_UserData0[1][2];
+float Alpha      = u_UserData0[1][3];
 
 uniform P_COLOR mat4 u_UserData0;
 uniform P_COLOR mat4 u_UserData1;

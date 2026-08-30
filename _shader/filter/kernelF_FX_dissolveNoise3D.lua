@@ -160,10 +160,12 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
     float green = fractal_noise(p3)*.5+.5;
     green = smoothstep(pixel_width,0.,green-amount);
 
-    vec3 color = texture2D(CoronaSampler0,uv).rgb;
+    vec4 srcSample = texture2D(CoronaSampler0,uv);
+    vec3 color = srcSample.rgb;
     vec3 col = vec3(red,green,blue)*color;
     
-    COLOR = vec4(vec3(col),1.0);
+    COLOR = vec4(vec3(col), srcSample.a);
+    COLOR.rgb *= COLOR.a;
 
   //----------------------------------------------
   //COLOR.a = (COLOR.a+COLOR.g+COLOR.b)/3;

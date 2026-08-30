@@ -72,7 +72,8 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
                   cos( uv.y * size + iTime * speed));
     vec2 offset5 = vec2(sin( p.x * size + iTime * speed),
                   cos( p.y * size + iTime * speed));
-    COLOR = vec4( texture2D( CoronaSampler0, uv + strengh * offset3 ).rgb, 1.0);
+    COLOR = texture2D( CoronaSampler0, uv + strengh * offset3 );
+    COLOR.rgb *= COLOR.a;
 
 
   //----------------------------------------------

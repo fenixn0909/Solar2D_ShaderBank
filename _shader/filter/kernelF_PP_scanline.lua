@@ -87,8 +87,8 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
     opacityScanline += abs(sin(CoronaTotalTime)) * .5  ; //50
   #endif
   //----------------------------------------------
-    vec2 uv = fragCoord/iResolution.xy;
-    vec3 col = texture2D( CoronaSampler0,uv).rgb;
+    vec4 src = texture2D( CoronaSampler0,uv);
+    vec3 col = src.rgb;
 
     
     vec2 sl = vec2(sin(uv.y * count), cos(uv.y * count));
@@ -98,7 +98,8 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
     col += col * vec3(random(uv*iTime)) * opacityNoise;
     col += col * sin(110.0*iTime) * flickering;
 
-    COLOR = vec4(col,1.0);
+    COLOR = vec4(col, src.a);
+    COLOR.rgb *= COLOR.a;
   //----------------------------------------------
   //COLOR.a = (COLOR.a+COLOR.g+COLOR.b)/3;
   //COLOR.a *= alpha;

@@ -53,7 +53,7 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
 {
     float threshold = bayer4(UV * iResolution);
     vec4 tex = texture2D(CoronaSampler0, UV);
-    P_COLOR vec4 COLOR = step(threshold, pow(tex, vec4(Gamma)));
+    P_COLOR vec4 COLOR = vec4( step(vec3(threshold), pow(tex.rgb, vec3(Gamma))), tex.a );
     COLOR.rgb *= COLOR.a;
     return CoronaColorScale(COLOR);
 }

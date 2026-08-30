@@ -17,42 +17,50 @@ kernel.name = "speedLineManga"
 --Test
 kernel.isTimeDependent = true
 
-kernel.vertexData   = {
-  {
-    name    = "r",
-    default = 0,
-    min     = 0,
-    max     = 1,
-    index   = 0,
-    },{
-    name    = "g",
-    default = 0,
-    min     = 0,
-    max     = 1,
-    index   = 1,
-    },{
-    name    = "b",
-    default = 0,
-    min     = 0,
-    max     = 1,
-    index   = 2,
-    },{
-    name    = "size",
-    default = 1,
-    min     = 0,
-    max     = 32,
-    index   = 3,
-  },
+kernel.vertexData   = nil
+kernel.uniformData =
+{
+    {
+        index = 0,
+        type = "mat4",  -- vec4 x 4
+        name = "uniSetting",
+        paramName = {
+            'Line_Color_A_R','Line_Color_A_G','Line_Color_A_B','Line_Color_A_A',
+            'Line_Color_B_R','Line_Color_B_G','Line_Color_B_B','Line_Color_B_A',
+            'Back_Color_R','Back_Color_G','Back_Color_B','Back_Color_A',
+            'Line_Threshold','Speed','Line_Length','Angle',
+        },
+        default = {
+            1,1,1,1,
+            0,1,1,1,
+            .171,.1,0,1,
+            .999,.07,1000,0,
+        },
+        min = {
+            0,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+            0,0,10,0,
+        },
+        max = {
+            3,3,3,1,
+            3,3,3,1,
+            1,1,1,1,
+            1,1,4000,360,
+        },
+    },
 }
 kernel.fragment = [[
 
-uniform vec4 line_color_a = vec4(1.62, 1.85, 3.0, 1.0);
-uniform vec4 line_color_b = vec4(.0, 3.0, 3.75, 1.0);
-uniform vec4 back_color = vec4(0.171,0.1,0,1);
-uniform float line_threshold = 0.999; //: hint_range(0.0, 1.0, 0.01)
-uniform float speed = 0.07; //: hint_range(0.0, 1.0, 0.01)
-uniform float line_length = 1000.0;
-uniform float angle = 0.0;//: hint_range(0.0, 360.0) 
+uniform P_COLOR mat4 u_UserData0;
+
+vec4  line_color_a    = vec4( u_UserData0[0][0], u_UserData0[0][1], u_UserData0[0][2], u_UserData0[0][3] );
+vec4  line_color_b    = vec4( u_UserData0[1][0], u_UserData0[1][1], u_UserData0[1][2], u_UserData0[1][3] );
+vec4  back_color      = vec4( u_UserData0[2][0], u_UserData0[2][1], u_UserData0[2][2], u_UserData0[2][3] );
+float line_threshold  = u_UserData0[3][0];
+float speed            = u_UserData0[3][1];
+float line_length     = u_UserData0[3][2];
+float angle             = u_UserData0[3][3];
 
 //----------------------------------------------
 

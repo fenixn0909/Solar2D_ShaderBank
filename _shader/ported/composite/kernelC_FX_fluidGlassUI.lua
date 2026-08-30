@@ -72,6 +72,7 @@ float noiseFn( vec2 uv )
 P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
 {
     P_COLOR vec4 COLOR = texture2D( CoronaSampler0, UV );
+    float shape_alpha = COLOR.a;
 
     vec2 warp_dir = UV;
     warp_dir.x = 1.0 - mix( mix( 0.5, 1.0, pow( warp_dir.x, 8.0 ) ), 0.0, pow( 1.0 - warp_dir.x, 8.0 ) );
@@ -106,7 +107,12 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
 
     screen *= grain;
 
-    COLOR = screen * vec4( COLOR.rgb, 1.0 ) + rim + curve_light + Brightness;
+    // rim/curve_light/Brightness apply to RGB only - the shape's own alpha
+    // (captured above, before any of this math) is what clips the effect
+    // to the sprite instead of the whole rect, so it's restored explicitly
+    // rather than left to whatever the RGB math happens to leave in .a
+    vec3 rgb = ( screen * vec4( COLOR.rgb, 1.0 ) ).rgb + rim + curve_light + Brightness;
+    COLOR = vec4( rgb, shape_alpha );
 
     COLOR.rgb *= COLOR.a;
     return CoronaColorScale( COLOR );
