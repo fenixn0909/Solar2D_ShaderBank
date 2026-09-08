@@ -94,3 +94,84 @@ just an index.
   original (dropped atlas-region support, dropped vertex-kernel bounds
   expansion, a documented bug fix, etc.) - noted in that file's own header,
   not repeated here.
+
+## Unity-technique originals (batch 2)
+
+Unlike the batch above, these 5 are not ports of one external source file.
+Unity's own shader source carries the Unity Companion License (not freely
+redistributable), and the specific Asset Store/Fab packages that popularized
+several of these looks are paid and closed-source - so nothing was copied
+from either. Each file is instead an original GLSL kernel implementing a
+technique that's genuinely characteristic of a well-known/top-rated Unity 2D
+shader category, chosen specifically because it wasn't covered anywhere else
+in this bank (checked against all ~345 existing kernels first). Full
+technique notes and specific reference points are in each file's own header.
+
+| File | Kernel ID | Effect |
+|---|---|---|
+| `kernelC_Lit_normalMap2D.lua` | `composite.Lit.normalMap2D` | Tangent-space normal-map + point-light 2D lighting - the technique behind Unity's own URP "Sprite-Lit-Default" |
+| `kernelG_water_caustics2D.lua` | `generator.water.caustics2D` | Procedural animated underwater caustics light-network overlay |
+| `kernelG_FX_metaball2D.lua` | `generator.FX.metaball2D` | Procedural 2D metaballs - up to 6 self-animating blobs that merge/split |
+| `kernelF_UI_liquidFillWave.lua` | `filter.UI.liquidFillWave` | Liquid fill meter with wavy surface, foam ridge and rising bubbles - fills any sprite's own shape |
+| `kernelF_pixel_ledMatrix.lua` | `filter.pixel.ledMatrix` | LED/dot-matrix retro display filter, square-to-circular dot shape blend |
+| `kernelF_pixel_ledMatrixV2.lua` | `filter.pixel.ledMatrixV2` | V2 sprite-masked LED — dots only where the sprite has color, gaps + empty stay transparent |
+
+### Worth knowing before you lean on these (batch 2)
+
+- **Needs a second texture:** `normalMap2D` is a composite effect -
+  CoronaSampler1 must be an actual tangent-space normal map (a flat,
+  no-bumps map is solid `(128,128,255)`), not an arbitrary second sprite.
+- **Transparent by default:** `metaball2D` and `caustics2D` are generators
+  meant to sit as an overlay on top of existing art - metaballs render on a
+  transparent background and caustics ships with `Background_A = 0`. Raise
+  the relevant alpha uniform if you want either as an opaque standalone
+  background instead.
+- **Deliberately not a repeat of what's already here:** `liquidFillWave`
+  differs on purpose from the flat `kernelF_UI_progressFill.lua` (adds
+  wave/foam/bubbles) and from the circular, fixed-shape
+  `kernelG_UI_liquidSphere2D.lua` (this one is a filter that respects
+  whatever silhouette CoronaSampler0's own alpha already has, so it works on
+  a bar, a round gauge, or a custom potion-bottle sprite equally). Likewise
+  `metaball2D` is unrelated to `kernelG_BG_bubbles.lua`'s ambient floating
+  bubbles - different technique, different purpose.
+- **Performance:** all six are cheap. Nothing here loops beyond a
+  compile-time-bounded 6 iterations (`metaball2D`) or 3 (`caustics2D`);
+  `ledMatrix`, `ledMatrixV2` and `liquidFillWave` use no loops at all.
+- **LED pick:** `ledMatrix` fills the whole rect with dots over a
+  `Background` color (jumbotron / terminal-screen look);
+  `ledMatrixV2` keeps the sprite silhouette - empty areas and dot gaps
+  stay transparent so it composites over any backdrop.
+
+## Combat-state FX (batch 3)
+
+Two direct CC0 ports plus three original technique implementations,
+all checked against every existing kernel first - nothing here repeats
+an effect the bank already has. The ports carry full attribution in
+their own headers; the originals name the paid Unity/2DFX category
+they reimplement (nothing copied) in theirs.
+
+| File | Kernel ID | Effect |
+|---|---|---|
+| `kernelF_FX_teleport.lua` | `filter.FX.teleport` | Teleport-away dissolve sweeping bottom-to-top with a hot beam edge (pend00, CC0) |
+| `kernelF_FX_burnFromPoint.lua` | `filter.FX.burnFromPoint` | Radial burn spreading from a sprite point with ember ring (enekoassets, CC0; noise texture replaced with procedural value noise) |
+| `kernelF_FX_stone.lua` | `filter.FX.stone` | Petrify-to-statue: desaturate to gray rock with grain + carved top-light (original; cf. 2DFX Stone category) |
+| `kernelF_FX_crackOverlay.lua` | `filter.FX.crackOverlay` | Damage fissures with ember lips spreading as Damage rises (original; cf. 2DFX Cracked Overlay) |
+| `kernelF_FX_forceField.lua` | `filter.FX.forceField` | Sprite-hugging energy bubble: alpha-gradient rim + scrolling scans + pulse (original; cf. Unity Force Field packs) |
+
+### Worth knowing before you lean on these (batch 3)
+
+- **All progress-driven except the bubble:** `teleport` (`Progress`
+  0->1), `burnFromPoint` (`Radius` 0->2), `stone` (`Progress` 0->1)
+  and `crackOverlay` (`Damage` 0->1) are static/time-frozen - drive
+  them with a tween like the bank's other dissolves. Only
+  `forceField` animates on its own (`isTimeDependent`).
+- **`burnFromPoint` epicenter is UV space:** `(0.5, 0.5)` is sprite
+  center, `(0, 0)` bottom-left - matches the original's click-to-UV
+  example in its header.
+- **`forceField` needs padding:** the rim can only draw into
+  transparent pixels already around the art - same caveat as
+  `outlineUniversal`. Leave a few px margin or it clips.
+- **Performance:** `teleport`, `burnFromPoint` and `stone` are
+  single-tap + cheap noise; `forceField` adds 4 rim taps + noise;
+  `crackOverlay` is the heaviest (3x3 Voronoi search per pixel) but
+  still far below `frostbite`/`wallDestruction` territory.

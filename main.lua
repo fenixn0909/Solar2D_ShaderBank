@@ -209,7 +209,7 @@ M.init = function()
     -- m.apply_specific_shader( mC_akCate[2], 'kernelF_deform_perspective' )
     -- m.apply_specific_shader( mC_akCate[2], 'kernelF_wobble_waterSurface' )
     -- m.apply_specific_shader( mC_akCate[3], 'kernelF_trans_pageScroll' )
-    m.apply_specific_shader( mC_akCate[4], 'kernelC_BG_textureOverlay' )
+    m.apply_specific_shader( mC_akCate[2], 'kernelF_pixel_ledMatrixV2' )
     
     m.upd_img( 2, 1 )   -- Trigger textureWrap setting
     
