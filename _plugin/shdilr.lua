@@ -1,6 +1,6 @@
 
 --[[
-    shdilr <Shader Dealer>
+    shdilr <Shader Dealer>                  Last Updated: 2026, Sep 9th
     Store shader info and apply them
     ✳️ Solar2d      phoenixongogo
     
@@ -15,9 +15,9 @@
 
 local a_val2idx = function( a_, k_ ) for i=1, #a_ do    if a_[i] == k_ then return i end   end end   --@Array Value to Index 
 ----------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
 local M,m,mtFn = {},{},{}
 ----------------------------------------------------------------------------------------------------
-
 ----------------------------------------------------------------------------------------------------
 local maRegi = {}
 local moLast -- The last object which applied effect
@@ -26,6 +26,7 @@ local mtLastParam
 -- DevTest
 local maaList = {}          -- ArrayArray: List
 local madShdr = {}          -- ArrayData: Shader file 
+local maaSel = {}           -- Array: per-union selected file index (each category remembers its own)
 local miUN_cur = 1          -- cur mIndexUnion: ShaderData Union < Group >
 local miBF_cur              -- cur mIndexBankFile
 
@@ -39,6 +40,7 @@ M.load_list = function( kFdr_, aFN_, iU_, bKeep_ )    --@kFilePrefix, @aFileName
     if not bKeep_ then
         maaList[iU_] = {}
         madShdr[iU_] = {}
+        maaSel[iU_] = 1
     end
 
     local _d = {}
@@ -147,7 +149,7 @@ M.cleanup_register = function()    maRegi = {} end
 
 
 -------------------------------------------------------------------------------------------------
--- Texture Mode
+--=== Texture Mode
 ----------------------------------------------------------------------------------------------------
 M.set_texture_wrap = function( k_ ) -- Key: 'repeat', 'mirroredRepeat', 'clampToEdge'
     display.setDefault( "textureWrapX", k_ )
@@ -155,36 +157,40 @@ M.set_texture_wrap = function( k_ ) -- Key: 'repeat', 'mirroredRepeat', 'clampTo
 end
 
 -------------------------------------------------------------------------------------------------
--- Bank Setting
+--=== Bank Setting
 ----------------------------------------------------------------------------------------------------
 M.bank_set_union = function( i_ )    
     miUN_cur = i_ 
-    M.bank_reset()
+    miBF_cur = maaSel[i_] or 1 -- restore this category's own selection instead of resetting
 end
 M.bank_reset = function()    miBF_cur = 1 end
 M.bank_set_iBF = function( i_ )     assert( i_>0, "i_ must > 0")    assert( i_<= #maaList[ miUN_cur ], "i_ must <= #maaList[ miUN_cur ]")
     miBF_cur = i_
+    maaSel[miUN_cur] = i_
 end
 
 M.bank_set_iBF_byKey = function( k_ )
     local _iUN = a_val2idx( maaList[miUN_cur],  k_ )  assert( _iUN, "no key found: "..k_)
     miBF_cur = _iUN
+    maaSel[miUN_cur] = _iUN
 end
 
 --=== Step to next index
 M.bank_next = function()
     miBF_cur = miBF_cur + 1
     if miBF_cur > #maaList[ miUN_cur ] then    miBF_cur = 1 end
+    maaSel[miUN_cur] = miBF_cur
 end
 
 --=== Step to previous index
 M.bank_prev = function()
     miBF_cur = miBF_cur - 1
     if miBF_cur < 1 then    miBF_cur = #maaList[ miUN_cur ] end
+    maaSel[miUN_cur] = miBF_cur
 end
 
 ----------------------------------------------------------------------------------------------------
--- Bank Data Retriving
+--=== Bank Data Retriving
 ----------------------------------------------------------------------------------------------------
 M.bank_print_dbInfo = function( )
     local _d = m.get_cur_data()
@@ -193,11 +199,15 @@ end
 M.bank_get_data = function( ) return  m.get_cur_data()    end
 M.bank_get_kernal = function( ) return m.get_kernal_path( m.get_cur_data()  )    end
 M.bank_get_fileName = function( ind_ ) return maaList[miUN_cur][ind_ or miBF_cur]    end
+M.bank_get_list = function( iU_ ) return maaList[iU_ or miUN_cur] end
+M.bank_get_union = function() return miUN_cur end
+M.bank_get_index = function( iU_ ) if iU_ then return maaSel[iU_] or 1 end return miBF_cur end
+M.bank_get_count = function( iU_ ) local _a = maaList[iU_ or miUN_cur] return _a and #_a or 0 end
 M.bank_get_textureWrap = function( ) return m.get_cur_data().textureWrap    end
-M.bank_get_dVertex = function( )    if not  m.get_cur_data().vertexData then print('No VertexData Found!') return nil end
+M.bank_get_dVertex = function( )    if not  m.get_cur_data().vertexData then print('Debug: No VertexData Found!') return nil end
 return  m.get_cur_data().vertexData    end
 
-M.bank_get_dUniform = function( )    if not  m.get_cur_data().uniformData then print('No UniformData Found!') return nil end
+M.bank_get_dUniform = function( )    if not  m.get_cur_data().uniformData then print('Debug: No UniformData Found!') return nil end
 return  m.get_cur_data().uniformData    end
 
 M.new_dUniform_mat4 = function( dO_ )  --@dOrigin
@@ -224,7 +234,7 @@ M.new_dUniform_mat4 = function( dO_ )  --@dOrigin
 return _dN    end
 
 -------------------------------------------------------------------------------------------------
--- Bank Apply
+--=== Bank Apply
 -------------------------------------------------------------------------------------------------
 --=== Apply Shader in Bank
 M.bank_apply = function( self, o_, t_ )  --@oImg, @tOpt
@@ -235,7 +245,7 @@ return self    end
 
 
 -------------------------------------------------------------------------------------------------
--- Axiliary <Private>
+--=== Axiliary <Private>
 -------------------------------------------------------------------------------------------------
 m.get_kernal_path = function( d_ ) return d_.category.. '.' ..d_.group.. '.' ..d_.name    end
 
@@ -249,8 +259,6 @@ m.extract_info = function( d_ )
     _t.vertexData, _t.uniformData = d_.vertexData, d_.uniformData
     _t.textureWrap = d_.textureWrap or 'clampToEdge'
 return _t    end
-
--------------------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------

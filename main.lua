@@ -120,6 +120,12 @@ local miSwitchCur = 1
 local moSegCon
 local moPckrWhl
 local moScrView
+local moShaderListView
+local moListBlocker
+local moListTitle
+local miListCate
+local mtoListRows = {}
+local mtaListScroll = {} -- per-category scroll Y: drag position never leaks across categories
 
 local mtoTextVD = {}
 local maoSlider = {}
@@ -179,6 +185,7 @@ M.init = function()
 
     m.init_switch( maoGrp[0], maoSwitch, mLsnr.aPage_switch ) -- Page Change
     moSegCon = m.new_segCon( maoGrp[0], mLsnr.segCon, mC_akCate ) -- Shader Category
+    m.init_shader_list( maoGrp[0] ) -- Overlay shader list (hidden by default)
 
     --=== Page: Param
     m.init_scrollerView( maoGrp[1], mLsnr.scrView ) 
@@ -194,26 +201,22 @@ M.init = function()
     --=== Hide Groups
     toggle_visible( false, maoGrp[2], maoGrp[3])
 
-    --=== Apply Shader Or ......
-    -- m.apply_bank_shader()
+    --=== Audo Load: Apply Shader Or ......
+    m.apply_bank_shader()
 
-    --=== Apply Specific Shader by Category and Filename
-    -- m.apply_specific_shader( mC_akCate[1], 'kernelG_BG_balatro' )
-    -- m.apply_specific_shader( mC_akCate[1], 'kernelG_Lit_vignetteN' )
-    -- m.apply_specific_shader( mC_akCate[1], 'kernelG_BG_stars' )
-    -- m.apply_specific_shader( mC_akCate[1], 'kernelG_FX_energyBeam' )
-    -- m.apply_specific_shader( mC_akCate[1], 'kernelG_water_windWalk2D' )
-    -- m.apply_specific_shader( mC_akCate[2], 'kernelF_fxNoise_balatroFire' )
-    -- m.apply_specific_shader( mC_akCate[2], 'kernelF_FX_geometricArt' )
-    -- m.apply_specific_shader( mC_akCate[2], 'kernelF_fxNoise_lensFlare' )
-    -- m.apply_specific_shader( mC_akCate[2], 'kernelF_deform_perspective' )
-    -- m.apply_specific_shader( mC_akCate[2], 'kernelF_wobble_waterSurface' )
-    -- m.apply_specific_shader( mC_akCate[3], 'kernelF_trans_pageScroll' )
-    m.apply_specific_shader( mC_akCate[2], 'kernelF_pixel_ledMatrixV2' )
+    --=== Manual Load: Apply Specific Shader by Category and Filename
+    -- NOTE: each category starts selected at 001; manual loads (row tap,
+    -- Prev/Next) update that category's own stored index. Startup applies
+    -- the 1st shader so every category begins at 001.
     
+    -- m.apply_specific_shader( mC_akCate[3], 'kernelF_trans_pageScroll' )
+    -- m.apply_specific_shader( mC_akCate[2], 'kernelF_pixel_ledMatrixV2' )
+    -- m.apply_specific_shader( mC_akCate[2], shdilr.bank_get_list(2)[1] )
+    
+    --=== After Touch
     m.upd_img( 2, 1 )   -- Trigger textureWrap setting
     
-
+    -- error'here'
     ----------------------------------------------------------------------------------------------------
 
 end
@@ -317,6 +320,186 @@ m.new_segCon = function( grp_, lstnr_, akCate_ )
     grp_:insert( _oSegCon )
 return _oSegCon    end
 
+--=== Shader List Overlay: dropdown panel under tabs, tap row to load
+m.init_shader_list = function( grp_ )
+    local _segBottom = moSegCon.y + moSegCon.height * 0.5
+    -- Dim blocker to catch outside taps (behind list, above preview).
+    -- NOTE: blocker starts BELOW the tab bar so tabs stay clickable
+    -- (switch list / same-tab dismiss). Taps on dim area dismiss + revert tab.
+    -- Use touch (not tap) so MCP Touch harness + real drags both work.
+    -- isHitTestable must stay false: true would block clicks even when hidden.
+    local _blkTop, _blkBottom = _segBottom, SCRN_DB
+    moListBlocker = display.newRect( grp_, SCRN_DCX, (_blkTop+_blkBottom)*0.5, SCRN_DDW, _blkBottom-_blkTop )
+    moListBlocker:setFillColor( 0, 0, 0, 0.35 )
+    moListBlocker.isVisible = false
+    moListBlocker.isHitTestable = false -- must stay false: true would block clicks even when hidden
+    moListBlocker:addEventListener( "touch", function( e_ )
+        if e_.phase == "began" then return true
+        elseif e_.phase == "ended" then m.hide_shader_list( true ) return true end
+        return true
+    end )
+
+    local _listTop = _segBottom + 4
+    local _listW = SCRN_DDW - 20
+    -- extend to screen bottom, overlapping the param widgets underneath (modal overlay)
+    local _listH = SCRN_DB - _listTop
+    if _listH < 100 then _listH = 100 end
+
+    moListTitle = display.newText{ parent= grp_, text= "", x= SCRN_DCX, y= _listTop + 12, fontSize= 14, font= native.systemFontBold }
+    moListTitle:setFillColor( 1, 1, 1 )
+    moListTitle.isVisible = false
+
+    moShaderListView = widget.newScrollView {
+        left= SCRN_DCX - _listW * 0.5, top= _listTop + 24,
+        width= _listW, height= _listH - 24,
+        hideBackground= false, backgroundColor= { 0.12, 0.12, 0.14, 0.97 },
+        horizontalScrollDisabled= true, verticalScrollDisabled= false,
+        hideScrollBar= false,
+    }
+    grp_:insert( moShaderListView )
+    moShaderListView.isVisible = false
+    -- stash layout for row building
+    moShaderListView._listW = _listW
+end
+
+m.show_shader_list = function( iCate_ )
+    -- remember outgoing category's drag position before switching
+    if miListCate ~= nil and moShaderListView and moShaderListView.isVisible
+        and moShaderListView.getContentPosition then
+        local _, _y = moShaderListView:getContentPosition()
+        mtaListScroll[miListCate] = _y
+    end
+    miListCate = iCate_
+    m.refresh_shader_list( iCate_, false )
+    moListBlocker.isVisible = true
+    moListTitle.isVisible = true
+    moShaderListView.isVisible = true
+    moListBlocker:toFront(); moShaderListView:toFront(); moListTitle:toFront()
+end
+
+m.hide_shader_list = function( bRevert_ )
+    if moShaderListView == nil or moShaderListView.isVisible == false then
+        if bRevert_ and moSegCon then moSegCon:setActiveSegment( miCateCur ) end
+        miListCate = nil
+        return
+    end
+    moListBlocker.isVisible = false
+    moShaderListView.isVisible = false
+    moListTitle.isVisible = false
+    -- remember this category's drag position (restored only for itself)
+    if miListCate ~= nil and moShaderListView.getContentPosition then
+        local _, _y = moShaderListView:getContentPosition()
+        mtaListScroll[miListCate] = _y
+    end
+    if bRevert_ and moSegCon then moSegCon:setActiveSegment( miCateCur ) end
+    miListCate = nil
+end
+
+m.refresh_shader_list = function( iCate_, bFollow_ ) -- @bFollowSelection: scroll to own selected index
+    local _aList = shdilr.bank_get_list( iCate_ ) or {}
+    local _n = #_aList
+    moListTitle.text = mC_akCate[iCate_] .. " (" .. _n .. ") - tap a shader to load"
+    -- clear old rows
+    for i=#mtoListRows,1,-1 do
+        if mtoListRows[i].grp and mtoListRows[i].grp.removeSelf then
+            mtoListRows[i].grp:removeSelf()
+        end
+        mtoListRows[i] = nil
+    end
+    moShaderListView:scrollToPosition{ time= 0, y= 0 }
+    local _rowH = 30
+    local _listW = moShaderListView._listW or (SCRN_DDW - 20)
+    -- per-category selection: each union remembers its own index
+    local _iActive = shdilr.bank_get_index( iCate_ )
+    for i=1,_n do
+        local _fn = _aList[i]
+        local _grp = display.newGroup()
+        local _bg = display.newRect( _grp, _listW*0.5, _rowH*(i-1)+_rowH*0.5, _listW-8, _rowH-2 )
+        local _tx = display.newText{ parent= _grp, text= string.format("%03d - %s", i, _fn),
+            x= 10, y= _rowH*(i-1)+_rowH*0.5, fontSize= 13, font= native.systemFont, align= "left" }
+        _tx.anchorX = 0
+        _tx.x = 10
+        moShaderListView:insert( _grp )
+        mtoListRows[i] = { grp= _grp, bg= _bg, txt= _tx, filename= _fn }
+        -- touch (not tap): works with MCP harness + allows drag-to-scroll forwarding
+        local _iCate, _kFN = iCate_, _fn
+        local _sx, _sy, _py, _isFocus, _moved = 0, 0, 0, false, false
+        _grp:addEventListener( "touch", function( e_ )
+            if e_.phase == "began" then
+                _sx, _sy, _py, _isFocus, _moved = e_.x, e_.y, e_.y, true, false
+                display.getCurrentStage():setFocus( _grp )
+                return true
+            elseif _isFocus then
+                if e_.phase == "moved" then
+                    if math.abs(e_.x-_sx) > 10 or math.abs(e_.y-_sy) > 10 then _moved = true end
+                    -- manual scroll (works for real touch + MCP synthetic drags;
+                    -- widget takeFocus needs a real touch id, so we scroll ourselves)
+                    if moShaderListView and moShaderListView.getContentPosition then
+                        local _, _cy = moShaderListView:getContentPosition()
+                        local _newY = _cy + (e_.y - _py)
+                        local _n = shdilr.bank_get_count( miListCate )
+                        local _limit = -math.max( 0, _n * 30 - moShaderListView.height )
+                        if _newY > 0 then _newY = 0 end
+                        if _newY < _limit then _newY = _limit end
+                        moShaderListView:scrollToPosition{ time= 0, y= _newY }
+                    end
+                    _py = e_.y
+                    return true
+                elseif e_.phase == "ended" or e_.phase == "cancelled" then
+                    display.getCurrentStage():setFocus( nil )
+                    local _wasTap = _isFocus and not _moved and e_.phase == "ended"
+                        and math.abs(e_.x-_sx) < 12 and math.abs(e_.y-_sy) < 12
+                    _isFocus = false
+                    if _wasTap then
+                        -- hide FIRST: apply refreshes the open list (rebuild removes
+                        -- this very row group), which must never run mid-dispatch
+                        m.hide_shader_list( false )
+                        m.apply_specific_shader( mC_akCate[_iCate], _kFN )
+                        -- loaded shader owns this category now: forget stale
+                        -- drag pos so next open follows the new index
+                        mtaListScroll[_iCate] = nil
+                        if moScrView then moScrView:scrollToPosition{ time= 0, y= 0 } end
+                        return true
+                    end
+                end
+            end
+            return true
+        end )
+    end
+    m.refresh_list_highlight()
+    -- per-category scroll: restore own drag position, else follow own selection.
+    -- never inherit another category's offset (a short list would show blank).
+    local _maxScroll = -math.max( 0, _n*_rowH - moShaderListView.height )
+    local _toY
+    if bFollow_ or mtaListScroll[iCate_] == nil then
+        _toY = -math.max( 0, (_iActive-1)*_rowH - 60 )
+    else
+        _toY = mtaListScroll[iCate_]
+    end
+    if _toY > 0 then _toY = 0 end
+    if _toY < _maxScroll then _toY = _maxScroll end
+    moShaderListView:scrollToPosition{ time= 0, y= _toY }
+    mtaListScroll[iCate_] = _toY
+end
+
+m.refresh_list_highlight = function()
+    if miListCate == nil then return end
+    -- per-category selection: each union remembers its own index
+    local _iActive = shdilr.bank_get_index( miListCate )
+    for i=1,#mtoListRows do
+        local _row = mtoListRows[i]
+        if _row and _row.bg and _row.txt then
+            if i == _iActive then
+                _row.bg:setFillColor( 0.2, 0.6, 0.9, 1 )
+                _row.txt:setFillColor( 1, 1, 1 )
+            else
+                _row.bg:setFillColor( 0.22, 0.22, 0.25, 1 )
+                _row.txt:setFillColor( 0.9, 0.9, 0.9 )
+            end
+        end
+    end
+end
+
 --=== Button
 m.init_menu_button = function( grp_, aoButton_, aLstnr_ )
     local _bX, _bY = SCRN_DL+74, SCRN_DB-40
@@ -373,6 +556,13 @@ m.apply_specific_shader = function( kC_, kN_ )  -- @keyCategory, @keyFileName
     shdilr.bank_set_iBF_byKey( kN_ )
 
     m.apply_bank_shader()
+    -- a manual load owns this category: forget its stale drag position so the
+    -- list follows the new index (same as row-tap / Prev/Next behavior), and
+    -- refresh the open list if it is showing this category
+    mtaListScroll[_iC] = nil
+    if miListCate == _iC and moShaderListView and moShaderListView.isVisible then
+        m.refresh_shader_list( _iC, true )
+    end
 end
 
 mm.load_shader_data = function()
@@ -551,6 +741,14 @@ mm.swap_shader = function( i_ )    local _akOpt = {'bank_prev','bank_next'}     
     shdilr.bank_print_dbInfo()
     m.apply_bank_shader()
     moScrView:scrollToPosition{ time= 0, y= 0 }
+    -- Prev/Next moved this category's selection: forget its stale drag pos
+    -- so its list follows the new index; other categories untouched
+    mtaListScroll[miCateCur] = nil
+    if miListCate ~= nil and moShaderListView and moShaderListView.isVisible then
+        -- each category keeps its own selection: follow it when browsing current,
+        -- leave other categories' lists untouched
+        if miListCate == miCateCur then m.refresh_shader_list( miListCate, true ) else m.refresh_list_highlight() end
+    end
 end
 mm.swap_menu = function( k_ )    local _iNew    assert( (k_=='+' or k_=='-'), "invalid key: "..k_)
     if k_ == '-' then    _iNew = miSwitchCur-1 == 0 and #maoSwitch or miSwitchCur-1    elseif k_ == '+' then _iNew = miSwitchCur+1 > #maoSwitch and 1 or miSwitchCur+1     end;
@@ -634,12 +832,13 @@ end end
 
 mLsnr.segCon = function( e_ )
     local _nSN = e_.target.segmentNumber
-    if mkCateCur == mC_akCate[ _nSN ] then return    end
-    mkCateCur = mC_akCate[ _nSN ]
-    miCateCur = _nSN
-    -- print("mkCateCur: "..mkCateCur)
-    shdilr.bank_set_union( _nSN )
-    m.apply_bank_shader()
+    -- Overlay list UX: click tab shows list, keep current preview until a row is tapped.
+    -- Clicking the same tab again dismisses. Taps outside the list (blocker) also dismiss.
+    if miListCate ~= nil and miListCate == _nSN and moShaderListView and moShaderListView.isVisible then
+        m.hide_shader_list( true )
+        return
+    end
+    m.show_shader_list( _nSN )
 end
 
 mLsnr.pckrWhl = function( e_ )   -- e_:{ column = 3, row = 21 }
@@ -659,6 +858,17 @@ end
 
 mLsnr.onEvent_mouse = function( e_ )
     if e_.type == "scroll" then
+        -- when shader list is open, wheel scrolls the list, not the param view
+        if miListCate ~= nil and moShaderListView and moShaderListView.isVisible then
+            local _x, _y = moShaderListView:getContentPosition()
+            local _toY = _y - e_.scrollY * 20
+            if _toY > 0 then _toY = 0 end
+            local _n = shdilr.bank_get_count( miListCate )
+            local _limit = -math.max( 0, _n * 30 - moShaderListView.height )
+            if _toY < _limit then _toY = _limit end
+            moShaderListView:scrollToPosition{ time= 0, y= _toY }
+            return
+        end
         local _x, _y = moScrView:getContentPosition()
         local _toY = _y - e_.scrollY * 5
         if _toY > 0 then  _toY = 0    end
