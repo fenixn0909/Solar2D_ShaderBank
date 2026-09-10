@@ -87,7 +87,7 @@ float emberLayer( vec2 uv, float layerIndex )
     float speed = Rise_Speed * ( 0.6 + layerIndex * 0.35 );
     float scale = Density * ( 1.0 + layerIndex * 0.4 );
 
-    vec2 scrolled = vec2( uv.x * scale, ( uv.y - CoronaTotalTime * speed * 0.15 ) * scale );
+    vec2 scrolled = vec2( uv.x * scale, ( uv.y + CoronaTotalTime * speed * 0.15 ) * scale );
     vec2 cell = floor( scrolled );
     vec2 localUV = fract( scrolled ) - 0.5;
 

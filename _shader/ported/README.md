@@ -259,3 +259,72 @@ header calls out the difference explicitly.
   this bank's existing `frostbite`/`crackOverlay`. Everything else in this
   batch is a compile-time-bounded loop of 10 iterations or fewer, or no
   loop at all.
+
+## Genre-VFX originals (batch 5)
+
+25 more, same policy as batches 2-4 (original GLSL, nothing copied).
+Checked against all 382 kernels that existed as of this batch's own
+starting point (the 345 original + batches 2-4 + the standalone
+`kernelF_color_posterize.lua` and the retuned `kernelF_BG_starFieldDreamy.lua`)
+before finalizing. This batch leans further into retro print/animation
+styles, additional water variety, sci-fi HUD elements, and small ambient
+nature/weather beats that hadn't been covered yet.
+
+**Bugfix included:** a prior commit in this same patch series fixes
+`kernelG_FX_emberDrift.lua` (batch 4) - its embers were drifting *down*
+instead of rising, a sign error in the vertical scroll term. One
+character (`-` to `+`). Re-verified the scroll direction algebraically
+(not just by eyeballing it) for every directional-motion kernel in this
+batch too - see each file's own logic for `sakuraPetals` (falls),
+`waterfallCascade` (falls), and `sandstormDrift`/`matrixCodeRain`
+(horizontal, no up/down claim to get wrong).
+
+| File | Kernel ID | Effect |
+|---|---|---|
+| `kernelG_FX_matrixCodeRain.lua` | `generator.FX.matrixCodeRain` | Falling digital-rain columns, font-free |
+| `kernelG_UI_radarSweep.lua` | `generator.UI.radarSweep` | Rotating radar/sonar sweep with blips |
+| `kernelG_FX_sakuraPetals.lua` | `generator.FX.sakuraPetals` | Falling, tumbling cherry-blossom petals |
+| `kernelG_FX_fireflyDrift.lua` | `generator.FX.fireflyDrift` | Wandering bioluminescent fireflies that flash on independent cycles |
+| `kernelG_FX_meteorShower.lua` | `generator.FX.meteorShower` | Streaking shooting stars with tapered tails |
+| `kernelG_FX_rainbowArc.lua` | `generator.FX.rainbowArc` | Seven-band rainbow arc sitting on a horizon |
+| `kernelF_FX_halftoneComic.lua` | `filter.FX.halftoneComic` | Comic-book Ben-Day dot halftone |
+| `kernelF_FX_risoGrain.lua` | `filter.FX.risoGrain` | Risograph-style two-ink duotone misregistration |
+| `kernelF_FX_watercolorBleed.lua` | `filter.FX.watercolorBleed` | Noise-bled edges + pigment pooling |
+| `kernelF_FX_claymationJitter.lua` | `filter.FX.claymationJitter` | Stop-motion frame-hold jitter/flicker/grain |
+| `kernelG_FX_spiderWebDew.lua` | `generator.FX.spiderWebDew` | Radial spider web with twinkling dew drops |
+| `kernelF_FX_puddleReflection.lua` | `filter.FX.puddleReflection` | Wet-ground mirrored reflection with ripple |
+| `kernelG_FX_whirlpoolVortex.lua` | `generator.FX.whirlpoolVortex` | Differential-rotation whirlpool funnel + foam rings |
+| `kernelG_FX_waterfallCascade.lua` | `generator.FX.waterfallCascade` | Falling water columns + foam pool + mist |
+| `kernelG_FX_geyserErupt.lua` | `generator.FX.geyserErupt` | Cyclic eruption column with spray and falling droplets |
+| `kernelF_FX_icicleDrip.lua` | `filter.FX.icicleDrip` | Hanging icicles with dripping tips |
+| `kernelG_FX_iceShardBurst.lua` | `generator.FX.iceShardBurst` | Progress-driven radial ice-shard burst |
+| `kernelG_FX_enchantTrail.lua` | `generator.FX.enchantTrail` | Data-driven 5-point rune-glyph trail (feeds real object positions) |
+| `kernelF_FX_shadowVeinsCreep.lua` | `filter.FX.shadowVeinsCreep` | Branching corruption veins from an origin point |
+| `kernelF_UI_lowHealthPulse.lua` | `filter.UI.lowHealthPulse` | Health-driven heartbeat vignette warning |
+| `kernelG_UI_questBeacon.lua` | `generator.UI.questBeacon` | Bobbing waypoint marker with light column |
+| `kernelF_FX_holoDataScan.lua` | `filter.FX.holoDataScan` | Scrolling sci-fi data-readout overlay |
+| `kernelG_FX_bioluminescentPulse.lua` | `generator.FX.bioluminescentPulse` | Staggered expanding organic pulse rings |
+| `kernelG_FX_frozenBreathFog.lua` | `generator.FX.frozenBreathFog` | Small looping cold-breath puff |
+| `kernelF_FX_paperCutoutShadow.lua` | `filter.FX.paperCutoutShadow` | Paper-craft soft offset shadow + shared grain |
+
+### Worth knowing before you lean on these (batch 5)
+
+- **Two are meant to be driven by real per-frame game data, not just art:**
+  `enchantTrail`'s five points are UV positions you update from Lua with an
+  object's actual recent path (unlike `spiritWisp` in batch 4, which fakes
+  its trail with a closed-form wander and needs no input); `iceShardBurst`'s
+  `Progress` and `lowHealthPulse`'s `Health` are also meant to be live
+  values, not static art-time settings.
+- **`whirlpoolVortex` vs. this bank's UV-swirl kernels:** deliberately not
+  built the same way as `vortexOverlay`/`vortexShrink` (which redirect a
+  sampled texture's UVs) - this is a self-contained generator with real
+  differential rotation and a depth gradient, so it reads as a solid
+  funnel rather than a distorted photo.
+- **`shadowVeinsCreep` uses a different technique on purpose:** this
+  batch's Voronoi-heavy kernels (see batch 4's notes) already cover
+  "spreading cell-based cracks"; this one branches jagged lines outward
+  from a point instead, so not everything here leans on the same trick.
+- **Performance:** no loop in this batch exceeds 10 iterations
+  (`matrixCodeRain`, `meteorShower`, `spiderWebDew`, `iceShardBurst`,
+  `radarSweep` all cap at 6-10). Everything else - all the water, weather,
+  and print-style filters - uses direct math with no loop at all.
