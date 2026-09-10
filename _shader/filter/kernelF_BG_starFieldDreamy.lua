@@ -25,29 +25,51 @@ kernel.name = "starFieldDreamy"
 
 kernel.isTimeDependent = true
 
-kernel.vertexData =
+kernel.uniformData =
 {
-  {
-    name = "resolutionX",
-    default = 1,
-    min = 1,
-    max = 99,
-    index = 0, 
-  },
-  {
-    name = "resolutionY",
-    default = 1,
-    min = 1,
-    max = 99,
-    index = 1, 
-  },
+    {
+        index = 0,
+        type = "mat4",  -- vec4 x 4
+        name = "uniSetting",
+        paramName = {
+            'Speed','Brightness','Star_Size','Max_Offset',
+            'Zoom','Gamma','','',
+            '','','','',
+            '','','','',
+        },
+        default = {
+            1,1.5,1,.8,
+            .5,.8182,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        min = {
+            0,0,.2,0,
+            .1,.2,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        max = {
+            50,4,2.5,1,
+            2,2.5,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+    },
 }
 
 
 kernel.fragment =
 [[
-P_DEFAULT float resolutionX = CoronaVertexUserData.x;
-P_DEFAULT float resolutionY = CoronaVertexUserData.y;
+uniform P_COLOR mat4 u_UserData0;
+
+float Speed      = u_UserData0[0][0];
+float Brightness = u_UserData0[0][1];
+float Star_Size  = u_UserData0[0][2];
+float Max_Offset = u_UserData0[0][3];
+float Zoom       = u_UserData0[1][0];
+float Gamma      = u_UserData0[1][1];
+
 //P_UV vec2 iResolution = vec2(resolutionX,resolutionY);
 P_UV vec2 iResolution = vec2(1,1);
 P_UV vec2 iMouse = vec2(1,1);
@@ -55,7 +77,6 @@ P_UV vec2 iMouse = vec2(1,1);
 //----------------------------------------------
 #define TWOPI 6.2831852
 #define LAYERS 8.0
-#define MAXOFFSET 0.8
 #define HALF_SQRT2 0.7071
 
 vec3 pal( in float t, in vec3 a, in vec3 b, in vec3 c, in vec3 d ) {
@@ -79,7 +100,7 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
   //P_UV vec2 fragCoord = texCoord / iResolution;
   P_UV vec2 fragCoord = texCoord;
   P_COLOR vec4 COLOR;
-  P_DEFAULT float iTime = CoronaTotalTime;
+  P_DEFAULT float iTime = CoronaTotalTime * Speed;
 
   //----------------------------------------------
   
@@ -94,7 +115,7 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
         float scale = 1.0;
         
         for(float i = 0.0; i < LAYERS; ++i) {
-        vec2 _uv = uv * 0.50 / HALF_SQRT2; // scaled to make corner-center dist <= 1.0 (when rotate 45°)
+        vec2 _uv = uv * Zoom / HALF_SQRT2; // scaled to make corner-center dist <= 1.0 (when rotate 45°)
         _uv = _uv * rot(i * 2.0) + vec2(0.03, 0.04) * i; // rotate for every layer
         scale = mod(i - iTime * 0.3, LAYERS); // compute scale for every layer
         _uv *= scale; // apply scale to each layer
@@ -110,8 +131,8 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
         vec3 noise = 2.0 * texture2D(CoronaSampler0, (idx + i) * 0.07).rgb - 1.0;
         //noise = vec3(0.0);
    
-        // limited to MAXOFFSET
-        noise.xy *= MAXOFFSET;
+        // limited to Max_Offset
+        noise.xy *= Max_Offset;
         
         // compute the scale limit
         vec2 margin = vec2(1.0) - abs(noise.xy);
@@ -120,8 +141,8 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
         
         vec2 local_uv = (_uv + noise.xy) / zoomScale;
         
-        // get polar coordinate
-        vec2 r_theta = vec2(length(local_uv), atan(local_uv.y, local_uv.x));
+        // get polar coordinate (Star_Size > 1 = bigger stars)
+        vec2 r_theta = vec2(length(local_uv) / Star_Size, atan(local_uv.y, local_uv.x));
         r_theta.y += sin(iTime * noise.z + noise.y * 5.0) * noise.x * 20.0;
     
         // get color
@@ -129,7 +150,7 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
         sum += feature(r_theta) * color * (LAYERS - scale) / LAYERS * (noise.x  + 3.0);
     }
     
-    COLOR = vec4(pow(sum * 1.5, vec3(1.8 / 2.2)), 1.0);
+    COLOR = vec4(pow(sum * Brightness, vec3(Gamma)), 1.0);
 
   //----------------------------------------------
   //COLOR.a *= alpha;

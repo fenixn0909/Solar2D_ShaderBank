@@ -175,3 +175,87 @@ they reimplement (nothing copied) in theirs.
   single-tap + cheap noise; `forceField` adds 4 rim taps + noise;
   `crackOverlay` is the heaviest (3x3 Voronoi search per pixel) but
   still far below `frostbite`/`wallDestruction` territory.
+
+## Genre-VFX originals (batch 4)
+
+25 more, same sourcing policy as batches 2-3 (original GLSL, no copied
+Unity/Asset-Store/2DFX code) but pulled from a wider net of AAA/top-tier-
+indie 2D VFX tropes rather than any one engine's shipped shaders - loot
+rarity shimmer, chain lightning, energy shields, and similar genre staples
+that don't trace to one single canonical implementation. Checked against
+every kernel that existed at the time these were written (the 345 original
++ this folder's batches 2 and 3) before writing any of these; where a new
+kernel sits close to an existing one in technique or theme, that file's own
+header calls out the difference explicitly.
+
+| File | Kernel ID | Effect |
+|---|---|---|
+| `kernelG_FX_auroraBorealis2D.lua` | `generator.FX.auroraBorealis2D` | Flowing multi-band aurora curtain |
+| `kernelG_FX_magicRuneCircle.lua` | `generator.FX.magicRuneCircle` | Rotating concentric rune circle, no art required |
+| `kernelG_FX_chainLightningArc.lua` | `generator.FX.chainLightningArc` | Jittery bolt between two arbitrary points (Tesla arc / chain lightning) |
+| `kernelG_FX_energyShieldDome.lua` | `generator.FX.energyShieldDome` | Fresnel shield dome with a settable impact ripple (standalone, not sprite-hugging - see note below) |
+| `kernelG_FX_radiantHalo.lua` | `generator.FX.radiantHalo` | Rotating holy halo ring + radial spokes |
+| `kernelG_FX_voidRiftTear.lua` | `generator.FX.voidRiftTear` | Jagged torn slit into a small starfield void |
+| `kernelG_FX_circuitPulse.lua` | `generator.FX.circuitPulse` | Tron-style glowing circuit grid with travelling pulses |
+| `kernelG_FX_arcaneSmoke.lua` | `generator.FX.arcaneSmoke` | Contained, domain-warped curse/magic smoke tendrils |
+| `kernelG_FX_moltenCracks.lua` | `generator.FX.moltenCracks` | Glowing lava-vein Voronoi rock material |
+| `kernelG_FX_emberDrift.lua` | `generator.FX.emberDrift` | Rising layered embers/ash with wobble and twinkle |
+| `kernelG_FX_gemSparkle.lua` | `generator.FX.gemSparkle` | Multi-point twinkling star-glints for gems/loot |
+| `kernelG_FX_overchargeCore.lua` | `generator.FX.overchargeCore` | Charging energy core with Charge-driven corona instability |
+| `kernelG_FX_sandstormDrift.lua` | `generator.FX.sandstormDrift` | Horizontal streaking sand/dust particles + haze |
+| `kernelG_FX_spiritWisp.lua` | `generator.FX.spiritWisp` | Wandering soul wisp with a closed-form fading trail |
+| `kernelC_FX_subsurfaceGlow2D.lua` | `composite.FX.subsurfaceGlow2D` | Thickness-map-driven fake subsurface backlight glow |
+| `kernelC_FX_prismGemRefraction.lua` | `composite.FX.prismGemRefraction` | Height-map refraction with per-channel chromatic dispersion |
+| `kernelC_FX_silkAnisoSheen.lua` | `composite.FX.silkAnisoSheen` | Kajiya-Kay-style anisotropic silk/cloth sheen |
+| `kernelF_UI_rarityGlow.lua` | `filter.UI.rarityGlow` | Loot-rarity edge glow + diagonal shine sweep |
+| `kernelF_FX_wireframeReveal.lua` | `filter.FX.wireframeReveal` | Holographic wireframe mesh + scanline reveal |
+| `kernelF_FX_toonCelShade.lua` | `filter.FX.toonCelShade` | Posterized cel-shade bands + ink outline for pre-shaded art |
+| `kernelF_pixel_asciiTerminal.lua` | `filter.pixel.asciiTerminal` | Procedural (font-free) ASCII-density terminal look |
+| `kernelF_FX_stainedGlassMosaic.lua` | `filter.FX.stainedGlassMosaic` | Voronoi stained-glass panes with dark leading |
+| `kernelF_FX_chronoFreeze.lua` | `filter.FX.chronoFreeze` | Origin-centered time-stop: facets + radiating cracks |
+| `kernelF_FX_obsidianGloss.lua` | `filter.FX.obsidianGloss` | Glossy wet/obsidian material sheen + grain |
+| `kernelF_UI_xrayVision.lua` | `filter.UI.xrayVision` | Detective-mode X-ray silhouette (rim + scan hatch) |
+
+### Worth knowing before you lean on these (batch 4)
+
+- **`energyShieldDome` vs. the newer `forceField` (batch 3):** both are
+  shield/barrier effects and both cite the same Unity Force-Field asset
+  category, but they're mechanically different - `forceField` is a filter
+  that hugs whatever silhouette CoronaSampler0 already has;
+  `energyShieldDome` is a generator with its own independent circular
+  radius (a free-standing bubble/ward, not tied to any sprite's outline)
+  plus a settable `Impact_X/Y/Time` ripple that `forceField` doesn't have.
+  Use `forceField` to wrap an existing sprite, `energyShieldDome` for a
+  standalone shield object with impact feedback. Kept both rather than
+  picking one since they solve genuinely different layout problems.
+- **Two need a second texture:** `subsurfaceGlow2D` needs a grayscale
+  thickness map in CoronaSampler1 (white = thin/translucent);
+  `prismGemRefraction` needs a grayscale height/facet map; `silkAnisoSheen`
+  needs a fiber-direction map encoded like a normal map's RG channels. All
+  three fall back to looking flat/wrong on an arbitrary second image - they
+  need a map actually authored for the purpose, same caveat as
+  `normalMap2D` in batch 2.
+- **A few expect a per-frame value from your own game code, not just a
+  static art asset:** `energyShieldDome`'s `Impact_Time` (seconds since
+  last hit - keep it negative for "no ripple"), `overchargeCore`'s
+  `Charge` (0-1 ability-charge progress), and `chronoFreeze`'s
+  `Freeze_Amount` (0-1 on/off) are all meant to be driven live, not left at
+  their defaults.
+- **Deliberately distinguished from existing/adjacent kernels:** see each
+  file's own header for specifics, but in short - `voidRiftTear` has a
+  hard torn silhouette rather than a full-frame UV swirl like
+  `vortexOverlay`/`vortexShrink`/`aetherialFlow`; `arcaneSmoke` is a tight,
+  object-attached tendril cloud rather than a screen-filling weather
+  system like the `cloud` group; `moltenCracks` and `stainedGlassMosaic`
+  both use Voronoi cells like `frostbite`/`crackOverlay` but for a static
+  glowing-rock material and a flat-colored mosaic respectively, not a
+  spreading damage animation; `toonCelShade` posterizes already-shaded art
+  rather than computing lighting from a normal map like `normalMap2D`;
+  `chainLightningArc` connects two independent points rather than
+  anchoring one bolt to the sprite's own center like
+  `lightning2D`/`lightningNature`.
+- **Performance:** heaviest is `moltenCracks`/`stainedGlassMosaic`/
+  `chronoFreeze` at a 3x3 (9-tap) Voronoi search - the same cost class as
+  this bank's existing `frostbite`/`crackOverlay`. Everything else in this
+  batch is a compile-time-bounded loop of 10 iterations or fewer, or no
+  loop at all.
