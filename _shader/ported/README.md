@@ -328,3 +328,58 @@ batch too - see each file's own logic for `sakuraPetals` (falls),
   (`matrixCodeRain`, `meteorShower`, `spiderWebDew`, `iceShardBurst`,
   `radarSweep` all cap at 6-10). Everything else - all the water, weather,
   and print-style filters - uses direct math with no loop at all.
+
+## Genre-VFX originals (batch 6)
+
+10 more, same policy as batches 2-5 (original GLSL, nothing copied).
+Checked against all 407 kernels that existed as of this batch's own
+starting point (345 original + batches 2-5) before finalizing - a full
+category.group.name diff turned up zero collisions. This batch is
+smaller and more exploratory than 4-5: the bank is dense enough now
+that most "obvious" VFX categories are already covered several times
+over, so this round leans on effects with a genuinely different
+mechanic (audio-visualizer bars, day-night sky cycling, wetness-mask
+compositing) instead of another reskin of an existing technique.
+
+| File | Kernel ID | Effect |
+|---|---|---|
+| `kernelF_UI_thermalVision.lua` | `filter.UI.thermalVision` | FLIR-style false-color heat-vision remap |
+| `kernelF_FX_pencilSketch.lua` | `filter.FX.pencilSketch` | Tone-driven cross-hatch pencil/charcoal line art |
+| `kernelG_BG_meadowWind.lua` | `generator.BG.meadowWind` | Procedural wind-blown grass field, two density layers |
+| `kernelG_FX_stormCloudFlash.lua` | `generator.FX.stormCloudFlash` | Thunderhead mass lit by internal flashes, no bolt lines |
+| `kernelG_BG_bokehDrift.lua` | `generator.BG.bokehDrift` | Soft drifting gaussian bokeh discs, two-layer parallax |
+| `kernelG_BG_dayNightCycle.lua` | `generator.BG.dayNightCycle` | Full day-night sky gradient cycle with arcing sun/moon |
+| `kernelG_FX_butterflyDrift.lua` | `generator.FX.butterflyDrift` | Wandering paired-wing butterflies with iridescent hue shift |
+| `kernelG_UI_equalizerBars.lua` | `generator.UI.equalizerBars` | Fake-spectrum audio-visualizer bars with falling peak caps |
+| `kernelF_trans_inkSpread.lua` | `filter.trans.inkSpread` | Staggered organic ink-diffusion scene transition |
+| `kernelC_FX_wetSurfaceSheen.lua` | `composite.FX.wetSurfaceSheen` | Wetness-mask-driven darkening + moving specular sheen |
+
+### Worth knowing before you lean on these (batch 6)
+
+- **`kernelF_trans_inkSpread.lua` lives outside this folder on purpose:**
+  it's physically in `_shader/filter_trans/`, not `_shader/ported/filter/`,
+  because no `_shader/ported/filter_trans/` path exists in `main.lua`'s
+  loader (nothing scans it - see the loader's path-list comments) and
+  every other transition kernel already uses the older 4-slot
+  `kernel.vertexData`/`CoronaVertexUserData` mechanism rather than this
+  bank's newer mat4 `uniformData` convention, which is almost certainly
+  what actually wires up to composer's progress feed. It's listed here
+  anyway since it went through the same batch and collision-check
+  process - it's just filed alongside its working siblings instead.
+- **Two are meant to take live values from game code, same pattern as
+  `enchantTrail`/`lowHealthPulse` in batch 5:** `dayNightCycle`'s
+  `Time_Offset` can be driven every frame for a game-controlled clock
+  (or left alone with `Cycle_Speed` > 0 for a self-playing sky);
+  `wetSurfaceSheen`'s `Wetness` is meant for a rain-starting/stopping
+  tween rather than a fixed art-time constant.
+- **`equalizerBars`'s peak-hold cap uses no frame memory:** a real VU
+  meter's peak lags and falls slowly because it remembers last frame's
+  value; a single fragment invocation can't do that, so it instead
+  resamples its own height function at several recent time offsets in a
+  small fixed loop and keeps the max, which reads the same way without
+  any persisted state.
+- **Performance:** loops stay small - `stormCloudFlash`'s fbm is 4
+  octaves, `bokehDrift` checks a 3x3 neighborhood (9 taps, same class as
+  this bank's existing Voronoi searches), `butterflyDrift` caps at 6,
+  `equalizerBars`'s peak search is 5, `inkSpread`'s seed loop is 5.
+  Everything else uses direct math with no loop.
