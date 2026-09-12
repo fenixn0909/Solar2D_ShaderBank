@@ -4,6 +4,11 @@
     Vaquers
     January 30, 2022
 
+    Bank fix: Angle_Spread now defaults to a full circle and the
+    sector mask is bypassed near 2*PI, so Progress visibly grows /
+    shrinks the disc out of the box (previously the zero-width
+    default sector rendered nothing, looking like Progress did
+    nothing). Narrow it again for a pie-wipe reveal.
 --]]
 
 
@@ -28,7 +33,7 @@ kernel.uniformData =
             'Col2_R','Col2_G','Col2_B','Col2_A',
         },
         default = {
-            .5, 0, 0, .5,
+            .5, 0, 6.28318, .5,
             .5, .5, 0, 0,
             0.0, 0.0, 1.0, 1.0,     
             0.0, 1.0, 0.0, 1.0,
@@ -118,7 +123,13 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     // applying edge fading
     float edge_fade_factor = mix(radial_center_factor, 1.0, 1.0-Edges_Fade);
     
-    COLOR.a = min(1.0, is2+is3)*min(1.0, is4+is5)*is*border_factor*mix(Col_Plasma.a, Col_Edge.a, edge_radial_factor)*edge_fade_factor;
+    // Full circle when spread is maxed: the sign-split sector math
+    // below collapses to a sliver at wide spreads, so bypass it and
+    // let Progress reveal the whole disc (default look).
+    float fullCircle = smoothstep( 6.0, 6.28318, Angle_Spread );
+    float sector = mix( min(1.0, is2+is3)*min(1.0, is4+is5), 1.0, fullCircle );
+
+    COLOR.a = sector*is*border_factor*mix(Col_Plasma.a, Col_Edge.a, edge_radial_factor)*edge_fade_factor;
     COLOR.rgb = mix(Col_Plasma.rgb, Col_Edge.rgb, edge_radial_factor);
     //----------------------------------------------
     //COLOR.rgb *= COLOR.a;

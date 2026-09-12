@@ -383,3 +383,142 @@ compositing) instead of another reskin of an existing technique.
   this bank's existing Voronoi searches), `butterflyDrift` caps at 6,
   `equalizerBars`'s peak search is 5, `inkSpread`'s seed loop is 5.
   Everything else uses direct math with no loop.
+
+## Genre-VFX originals (batch 7)
+
+25 more, same policy as batches 2-6 (original GLSL, nothing copied).
+Checked against all 417 kernels that existed as of this batch's own
+starting point (345 original + batches 2-6) - a full category.group.name
+diff turned up zero collisions, and every candidate concept was also
+grepped across every existing file's actual code/header text, not just
+kernel names, before being finalized (this round included spot-reading
+several existing files in full - `kernelG_FG_rainSnow.lua`,
+`kernelF_ui_cooldown.lua`, `kernelC_FX_iridescence2d.lua` and others -
+to rule out near-miss ideas that a name-only search would have missed).
+This batch leans into combat/impact one-shots, racing, RPG status
+effects, and a couple of small-scene UI widgets - areas with less
+existing coverage than nature/fantasy VFX at this point.
+
+| File | Kernel ID | Effect |
+|---|---|---|
+| `kernelG_FX_hitSparkBurst.lua` | `generator.FX.hitSparkBurst` | Radiating spark-line combat impact flash |
+| `kernelG_FX_nitroFlameTrail.lua` | `generator.FX.nitroFlameTrail` | Dual-nozzle turbulent exhaust flame plumes |
+| `kernelG_FX_driftSparkShower.lua` | `generator.FX.driftSparkShower` | Gravity-arced spark shower from a contact point |
+| `kernelG_UI_rangeIndicatorRing.lua` | `generator.UI.rangeIndicatorRing` | Filled-radius TD/RTS range indicator, dashed rotating rim |
+| `kernelG_FX_pathArrowFlow.lua` | `generator.FX.pathArrowFlow` | Flowing chevron arrows along a path direction |
+| `kernelG_FX_packOpenBurst.lua` | `generator.FX.packOpenBurst` | One-shot ring + ray-burst + sparkle for loot/pack reveals |
+| `kernelG_FX_springBouncePulse.lua` | `generator.FX.springBouncePulse` | Damped-spring squash/stretch bounce-pad pulse |
+| `kernelG_FX_flashlightDustCone.lua` | `generator.FX.flashlightDustCone` | Spotlight cone with slow suspended dust motes |
+| `kernelG_BG_rollingFogBank.lua` | `generator.BG.rollingFogBank` | Two-layer drifting ground mist with vertical falloff |
+| `kernelG_FX_teleporterBeamColumn.lua` | `generator.FX.teleporterBeamColumn` | Sci-fi teleporter pad column with materialize trigger |
+| `kernelG_FX_poisonBubbleDrip.lua` | `generator.FX.poisonBubbleDrip` | Rising, wobbling, popping toxin-bubble status aura |
+| `kernelG_FX_stunStarsOrbit.lua` | `generator.FX.stunStarsOrbit` | Orbiting sparkle-stars stun/dizzy status |
+| `kernelG_FX_curseAuraWisp.lua` | `generator.FX.curseAuraWisp` | Curling dark tendrils climbing from a curse-status point |
+| `kernelG_FX_frostBreathCone.lua` | `generator.FX.frostBreathCone` | Directional icy breath-attack cone with fast streaks |
+| `kernelG_FX_dandelionDrift.lua` | `generator.FX.dandelionDrift` | Wispy suspended seed-tufts drifting on the wind |
+| `kernelG_UI_loadingSpinnerRing.lua` | `generator.UI.loadingSpinnerRing` | Indeterminate rotating arc spinner with fading tail |
+| `kernelF_color_seasonalShift.lua` | `filter.color.seasonalShift` | Hue-gated foliage-only recolor across 4 seasons |
+| `kernelF_FX_buffSparkleRise.lua` | `filter.FX.buffSparkleRise` | Alpha-edge rim + rising twinkle motes, buff status |
+| `kernelF_FX_blockParryFlash.lua` | `filter.FX.blockParryFlash` | Cross-flash + expanding ring, block/parry hit-stop |
+| `kernelF_FX_koFreezeVignette.lua` | `filter.FX.koFreezeVignette` | Desaturate + contrast + vignette + chroma KO freeze-frame |
+| `kernelF_FX_tireSkidMarks.lua` | `filter.FX.tireSkidMarks` | Paired wobbling wheel-path skid/scuff streaks |
+| `kernelF_FX_movingPlatformStripe.lua` | `filter.FX.movingPlatformStripe` | Diagonal hazard stripes with scroll + pulse |
+| `kernelF_FX_neonSignFlicker.lua` | `filter.FX.neonSignFlicker` | Alpha-edge neon glow with irregular tube-flicker dropouts |
+| `kernelC_FX_stainedLightThroughWindow.lua` | `composite.FX.stainedLightThroughWindow` | Colored window light projected onto a separate base scene |
+| `kernelC_FX_tornPagePeel.lua` | `composite.FX.tornPagePeel` | Mask-driven curling page-corner peel with shading + shadow |
+
+### Worth knowing before you lean on these (batch 7)
+
+- **Verified-clear near-misses worth knowing about:** `kernelG_FG_
+  rainSnow.lua` already does diagonal parallax rain streaks (so a
+  "heavy rain sheet" idea was dropped rather than risk a near-dupe);
+  `kernelF_ui_cooldown.lua` already masks an icon with a determinate
+  radial wedge (so `loadingSpinnerRing` was deliberately built as a
+  self-contained *indeterminate* spinner instead, with no icon
+  dependency); `kernelC_FX_iridescence2d.lua` already covers thin-film
+  holographic shimmer (so a "holographic card foil" idea was dropped).
+- **Progress/Trigger-driven one-shots, not loops:** `hitSparkBurst`,
+  `packOpenBurst`, `springBouncePulse`, `blockParryFlash` and
+  `koFreezeVignette` all key off a static Progress/Trigger value with
+  no `CoronaTotalTime` term at all - tween 0->1 from Lua, same pattern
+  as batch 3's `teleport`/`stone`/`crackOverlay`. Everything else in
+  this batch is `isTimeDependent` and runs on its own.
+- **`teleporterBeamColumn`'s `Materialize` is separate from its idle
+  animation:** the streak-scroll and base-ring pulse always run; only
+  the whole column's visibility is gated by `Materialize`, so you tween
+  that one value for an appear/disappear beat without touching timing.
+- **Two share a cone-shape helper concept on purpose, with different
+  content:** `flashlightDustCone` (slow suspended dust, ambient) and
+  `frostBreathCone` (fast axial streaks, an attack) - same
+  Origin/Aim_Angle/Spread framing, deliberately different motion so
+  they don't read as reskins of each other.
+- **Performance:** loop counts stay in this bank's usual range -
+  `driftSparkShower`/`frostBreathCone` use 10, `poisonBubbleDrip`/
+  `dandelionDrift`/`buffSparkleRise` use 8-12, `packOpenBurst` runs a
+  12-ray loop plus an 8-sparkle loop (each with a 3-iteration pop
+  loop nested only after a life > 0.82 gate), `curseAuraWisp` and
+  `stunStarsOrbit`/`neonSignFlicker` use 4-8. Everything else uses
+  direct math with no loop.
+
+
+## AAA post-process originals (batch 8)
+
+10 more, filter category only, aimed specifically at production-grade
+post-process techniques rather than character/particle VFX. Checked
+against all 417 kernels on `origin/main` as of this batch's own
+starting point (345 original + batches 2-6) - zero collisions. Note:
+**this batch branches from the same commit as batch 7 rather than
+stacking on top of it**, since batch 7 hadn't been pushed yet when this
+one started - the two are independent siblings and can be applied in
+either order (or both; nothing in batch 8 overlaps batch 7, checked
+against its planned kernel IDs too before writing any code).
+
+| File | Kernel ID | Effect |
+|---|---|---|
+| `kernelF_FX_volumetricLightShafts.lua` | `filter.FX.volumetricLightShafts` | Classic Mitchell/GPU-Gems radial light-shaft accumulation |
+| `kernelF_color_filmicSplitTone.lua` | `filter.color.filmicSplitTone` | ACES-approx filmic curve + independent shadow/highlight tint |
+| `kernelF_FX_filmHalation.lua` | `filter.FX.filmHalation` | Red-shifted bloom bleed gated on clipped highlights only |
+| `kernelF_FX_lensDustOverlay.lua` | `filter.FX.lensDustOverlay` | Procedural smudges + scratches, luminance-adaptive visibility |
+| `kernelF_UI_nightVisionAmp.lua` | `filter.UI.nightVisionAmp` | Green-channel light amplification, dual-lens NVG mask |
+| `kernelF_blur_pointFocusDOF.lua` | `filter.blur.pointFocusDOF` | Stationary point-focus depth of field, not a motion blur |
+| `kernelF_FX_heroRimFresnel.lua` | `filter.FX.heroRimFresnel` | Power-curve Fresnel rim light with directional bias |
+| `kernelF_FX_underwaterCaustics.lua` | `filter.FX.underwaterCaustics` | Refractive wobble + tint + scrolling caustic net, for existing art |
+| `kernelF_FX_cinematicLetterbox.lua` | `filter.FX.cinematicLetterbox` | Letterbox bars + grain + grade + vignette, one cutscene toggle |
+| `kernelF_FX_anamorphicLensStreak.lua` | `filter.FX.anamorphicLensStreak` | Axis-constrained bidirectional streak from in-scene highlights |
+
+### Worth knowing before you lean on these (batch 8)
+
+- **Verified-clear near-misses worth knowing about:** read `kernelF_FX_
+  bloom.lua`, `kernelF_blur_radial.lua`, `kernelF_fxNoise_lensFlare.lua`
+  and `kernelF_FX_outlineUniversal.lua` in full before finalizing this
+  batch. Bloom is a plain neutral-tint 4-neighbor glow (no red shift,
+  so `filmHalation` doesn't reskin it); `blur_radial` is a Progress-
+  driven directional zoom-streak (motion read, not a stationary focus-
+  preserving blur, so `pointFocusDOF` doesn't reskin it); `lensFlare`
+  draws the classic multi-ghost circular flare along a line (not an
+  axis-constrained streak, so `anamorphicLensStreak` doesn't reskin
+  it); `outlineUniversal` traces a uniform-width solid silhouette line
+  (not a graded Fresnel falloff, so `heroRimFresnel` doesn't reskin
+  it). All four are called out by name in their respective kernel's
+  own header, not just here.
+- **`nightVisionAmp` vs this bank's own `thermalVision` (batch 6):**
+  same "vision mode" slot but a different amplification model (single
+  green channel from real luminance vs a seven-stop false-color heat
+  palette) and a dual-lens binocular mask thermalVision doesn't have -
+  they're meant to be genuinely different toggle-able modes, not
+  palette swaps of each other.
+- **`volumetricLightShafts` and `anamorphicLensStreak` are both multi-
+  tap bright-pixel accumulators on purpose, with different sampling
+  geometry:** light shafts converge every sample toward one Light_Pos
+  (radial); the streak marches bidirectionally along one fixed
+  Streak_Angle with no target point at all (axis-constrained). Real
+  engines ship both as separate post-process passes for the same
+  reason - they solve different problems (occluded shafts vs a lens
+  artifact on any bright pixel).
+- **Performance:** `volumetricLightShafts` is a 16-tap march (in line
+  with `outlineUniversal`'s existing 64-tap precedent in this same
+  folder); `filmHalation`, `pointFocusDOF`, `heroRimFresnel` and
+  `anamorphicLensStreak` are single 8-tap rings; `lensDustOverlay` runs
+  two small loops (5 smudges + 6 scratches). `filmicSplitTone`,
+  `nightVisionAmp`, `underwaterCaustics` and `cinematicLetterbox` use
+  direct math with no loop at all.

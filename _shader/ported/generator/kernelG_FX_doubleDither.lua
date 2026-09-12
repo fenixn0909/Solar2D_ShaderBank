@@ -6,7 +6,10 @@
 
     Direct port, no texture needed - pure generator, matches the
     original. resolution is auto-computed from CoronaTexelSize.zw
-    instead of needing manual sync.
+    instead of needing manual sync. Adapted for GLSL ES 1.00: the
+    original's const-int Bayer tables and round() don't compile on
+    device, so tables are mat2/mat4 lookups (8x8 built recursively)
+    and round() is floor(x+0.5) - identical thresholds.
 --]]
 
 
@@ -52,53 +55,47 @@ vec4  Color              = vec4( u_UserData0[2][2], u_UserData0[2][3], u_UserDat
 
 vec2 resolution = CoronaTexelSize.zw;
 
-const int bayer2[4] = int[4](
-    0, 2,
-    3, 1
+// Bayer tables as matrices: GLSL ES 1.00 has no array constructors
+// (const int bayerN[] = int[](...) won't compile on device), so use
+// the same mat-lookup idiom as kernelF_FX_ditherClassic in this bank.
+// Tables are transposed vs the canonical layout, which is still a
+// valid ordered-dither pattern.
+const mat2 BAYER2 = mat2(
+    vec2( 0.0, 3.0 ),
+    vec2( 2.0, 1.0 )
 );
 
-const int bayer4[16] = int[16](
-    0, 8, 2, 10,
-    12, 4, 14, 6,
-    3, 11, 1, 9,
-    15, 7, 13, 5
-);
-
-const int bayer8[64] = int[64](
-    0, 32,  8, 40,  2, 34, 10, 42,
-    48, 16, 56, 24, 50, 18, 58, 26,
-    12, 44,  4, 36, 14, 46,  6, 38,
-    60, 28, 52, 20, 62, 30, 54, 22,
-    3, 35, 11, 43,  1, 33,  9, 41,
-    51, 19, 59, 27, 49, 17, 57, 25,
-    15, 47,  7, 39, 13, 45,  5, 37,
-    63, 31, 55, 23, 61, 29, 53, 21
+const mat4 BAYER4 = mat4(
+    vec4( 0.0, 12.0, 3.0, 15.0 ),
+    vec4( 8.0, 4.0, 11.0, 7.0 ),
+    vec4( 2.0, 14.0, 1.0, 13.0 ),
+    vec4( 10.0, 6.0, 9.0, 5.0 )
 );
 
 //----------------------------------------------
 
 float get_bayer2( vec2 coord )
 {
-    int x = int( mod( coord.x, 2.0 ) );
-    int y = int( mod( coord.y, 2.0 ) );
-    int index = y * 2 + x;
-    return ( float( bayer2[index] ) + 0.5 ) / 4.0;
+    ivec2 p = ivec2( mod( coord, 2.0 ) );
+    return ( BAYER2[p.x][p.y] + 0.5 ) / 4.0;
 }
 
 float get_bayer4( vec2 coord )
 {
-    int x = int( mod( coord.x, 4.0 ) );
-    int y = int( mod( coord.y, 4.0 ) );
-    int index = y * 4 + x;
-    return ( float( bayer4[index] ) + 0.5 ) / 16.0;
+    ivec2 p = ivec2( mod( coord, 4.0 ) );
+    return ( BAYER4[p.x][p.y] + 0.5 ) / 16.0;
 }
 
+// 8x8 built recursively from 4x4 (B8 = 4*B4 + offset quadrant),
+// same values as the original 64-entry table.
 float get_bayer8( vec2 coord )
 {
-    int x = int( mod( coord.x, 8.0 ) );
-    int y = int( mod( coord.y, 8.0 ) );
-    int index = y * 8 + x;
-    return ( float( bayer8[index] ) + 0.5 ) / 64.0;
+    vec2 cell = floor( mod( coord, 8.0 ) );
+    ivec2 q = ivec2( floor( cell / 4.0 ) );
+    ivec2 inner = ivec2( mod( cell, 4.0 ) );
+    float base = BAYER4[inner.x][inner.y];
+    float off = BAYER2[q.x][q.y];
+    return ( base * 4.0 + off + 0.5 ) / 64.0;
 }
 
 float get_dither( vec2 uv, vec2 step_size )
@@ -130,7 +127,7 @@ float get_mask( vec2 uv, vec2 step_size, vec2 offset )
 P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
 {
     vec2 uv_step = Pixel_Size / resolution;
-    vec2 raw_offset_uv = round( Dither_Offset ) * uv_step;
+    vec2 raw_offset_uv = floor( Dither_Offset + 0.5 ) * uv_step;
     vec2 effective_offset = Interpolate > 0.5 ? raw_offset_uv * 0.5 : raw_offset_uv;
     vec2 centered_uv = UV + effective_offset * 0.5;
     float dither;
