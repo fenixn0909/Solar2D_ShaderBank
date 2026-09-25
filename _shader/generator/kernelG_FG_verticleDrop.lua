@@ -19,22 +19,51 @@ kernel.name = "verticleDrop"
 
 kernel.isTimeDependent = true
 
-kernel.vertexData =
+kernel.vertexData = nil
+
+kernel.uniformData =
 {
-  { name = "Speed",         default = 2.0, min = -10, max = 10, index = 0, },
-  { name = "Density",       default = 800, min = 50, max = 1000, index = 1, },
-  { name = "Trail",         default = 77, min = -50, max = 800, index = 2, },
-  { name = "Compression",   default = 1.1, min = -5, max = 5, index = 3, },
-} 
+    {
+        index = 0,
+        type = "mat4",
+        name = "uniSetting",
+        paramName = {
+            'Speed','Density','Trail','Compression',
+            'Move_Angle','','','',
+            '','','','',
+            '','','','',
+        },
+        default = {
+            2,800,77,1.1,
+            0,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        min = {
+            -10,50,-50,-5,
+            0,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        max = {
+            10,1000,800,5,
+            6.28318,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+    },
+}
 
 
 kernel.fragment =
 [[
 
-float Speed = CoronaVertexUserData.x;
-float Density = CoronaVertexUserData.y;
-float Trail = CoronaVertexUserData.z;
-float Compression = CoronaVertexUserData.w;
+uniform P_COLOR mat4 u_UserData0;
+float Speed = u_UserData0[0][0];
+float Density = u_UserData0[0][1];
+float Trail = u_UserData0[0][2];
+float Compression = u_UserData0[0][3];
+float Move_Angle = u_UserData0[1][0];
 
 //----------------------------------------------
 //----------------------------------------------
@@ -52,6 +81,14 @@ P_DEFAULT float TIME = CoronaTotalTime;
 P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
 {
     //----------------------------------------------
+
+    // Move_Angle rotates the drop direction so rain/snow/firefly drift is tweakable.
+    {
+        vec2 cuv = UV - vec2( 0.5 );
+        float ca = cos( Move_Angle );
+        float sa = sin( Move_Angle );
+        UV = vec2( cuv.x * ca - cuv.y * sa, cuv.x * sa + cuv.y * ca ) + vec2( 0.5 );
+    }
 
     vec2 uv = -UV;
     float time = TIME * Speed;

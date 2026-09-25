@@ -1,8 +1,11 @@
 --[[
     https://godotshaders.com/shader/darkened-blur/
     LambBrainz Aug 25, 2024
-    Fixed: was filter with no vertexData (hardcoded strength 2, lod 0,
-    mix 0.3). Now exposes Strength/Lod/Mix as real-time params.
+    Fixed (round 2): the previous fix assigned to `uniform` globals
+    inside the fragment (illegal GLSL - uniforms are read-only) and used
+    dynamic loop bounds, so it failed to compile = black sprite. Now
+    uses locals only and a constant-bound box blur. The dead Lod param
+    became Process (original -> dark blur).
 --]]
 local kernel = {}
 
@@ -13,52 +16,46 @@ kernel.name = "darken"
 kernel.isTimeDependent = false
 
 kernel.vertexData = {
-  { name = "Strength", default = 2, min = 1, max = 12, index = 0, },
-  { name = "Lod",      default = 0, min = 0, max = 5,  index = 1, },
+  { name = "Process",  default = 1,   min = 0, max = 1, index = 0, },
+  { name = "Strength", default = 2,   min = 1, max = 6, index = 1, },
   { name = "Mix",      default = 0.3, min = 0, max = 1, index = 2, },
 }
 
 kernel.fragment =
 [[
 
-//----------------------------------------------
-
-uniform float lod = 0.0;
-uniform float mix_percentage = 0.3;
-int strength = 2;
-
-vec4 blur_size(sampler2D tex,vec2 fragCoord, vec2 pixelSize) {
-    vec4 color = vec4(0.);
-    float sf = float(strength);
-    vec2 pixel = fragCoord/pixelSize;
-    int x_min = int(max(pixel.x-sf, 0));
-    int x_max = int(min(pixel.x+sf, 1./pixelSize.x));
-    int y_min = int(max(pixel.y-sf, 0));
-    int y_max = int(min(pixel.y+sf, 1./pixelSize.y));
-    int count =0;
-    for(int x=x_min; x <= x_max; x++) {
-        for(int y = y_min; y <= y_max; y++) {
-            color += texture2D(tex, vec2(float(x), float(y)) * pixelSize);
-            count++;
-        }
-    }
-    color /= float(count);
-    return color;
-}
-
 P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
 {
-    int   Strength = int(CoronaVertexUserData.x + 0.5);
-    float Lod      = CoronaVertexUserData.y;
+    float Process  = CoronaVertexUserData.x;
+    int   Strength = int( CoronaVertexUserData.y + 0.5 );
     float Mix      = CoronaVertexUserData.z;
-    strength = Strength;
-    lod = Lod;
-    mix_percentage = Mix;
 
-    vec4 color = blur_size( CoronaSampler0, UV, CoronaTexelSize.zw );
-    P_COLOR vec4 COLOR = mix(color, vec4(0,0,0,color.a), mix_percentage);
+    float sf = clamp( float( Strength ), 1.0, 6.0 );
+    vec2 px = CoronaTexelSize.zw;
+
+    // constant-bound box blur, taps gated by Strength
+    vec4 acc = vec4( 0.0 );
+    float cnt = 0.0;
+    for ( int ox = -6; ox <= 6; ox++ )
+    {
+        for ( int oy = -6; oy <= 6; oy++ )
+        {
+            if ( abs( float( ox ) ) <= sf && abs( float( oy ) ) <= sf )
+            {
+                acc += texture2D( CoronaSampler0, UV + vec2( float( ox ), float( oy ) ) * px );
+                cnt += 1.0;
+            }
+        }
+    }
+    vec4 blurred = acc / max( cnt, 1.0 );
+
+    vec4 orig = texture2D( CoronaSampler0, UV );
+    vec4 dark = mix( blurred, vec4( 0.0, 0.0, 0.0, blurred.a ), clamp( Mix, 0.0, 1.0 ) );
+    vec4 outc = mix( orig, dark, clamp( Process, 0.0, 1.0 ) );
+
+    P_COLOR vec4 COLOR = outc;
     COLOR.rgb *= COLOR.a;
-    return CoronaColorScale(COLOR);
+    return CoronaColorScale( COLOR );
 }
 ]]
 

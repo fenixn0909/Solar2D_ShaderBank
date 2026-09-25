@@ -17,22 +17,54 @@ kernel.name = "transperantLightning"
 
 kernel.isTimeDependent = true
 
-kernel.vertexData =
+kernel.vertexData = nil
+
+kernel.uniformData =
 {
-  { name = "Speed",      default = 1.0, min = 0, max = 10, index = 0, },
-  { name = "Glow",       default = 0.08, min = 0, max = 2, index = 1, },
-  { name = "AmpX",       default = 2.0, min = 0, max = 50, index = 2, },
-  { name = "AmpY",       default = 1.0, min = 0, max = 50, index = 3, },
-} 
+    {
+        index = 0,
+        type = "mat4",
+        name = "uniTint",
+        paramName = {
+            'Angle','Base_R','Base_G','Base_B',
+            'Glow_R','Glow_G','Glow_B','Thickness',
+            'Base_A','Glow_A','Speed','Glow',
+            'AmpX','AmpY','','',
+        },
+        default = {
+            0,1,1,1,
+            .2,0,.8,.02,
+            1,0,1,.08,
+            2,1,0,0,
+        },
+        min = {
+            0,0,0,0,
+            0,0,0,.001,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        max = {
+            6.28318,1,1,1,
+            1,1,1,.2,
+            1,1,10,2,
+            50,50,0,0,
+        },
+    },
+}
 
 
 kernel.fragment =
 [[
 
-float Speed = CoronaVertexUserData.x;
-float Glow = CoronaVertexUserData.y;
-float AmpX = CoronaVertexUserData.z;
-float AmpY = CoronaVertexUserData.w;
+uniform P_COLOR mat4 u_UserData0;
+float Bolt_Angle   = u_UserData0[0][0];
+vec4 base_color = vec4(u_UserData0[0][1],u_UserData0[0][2],u_UserData0[0][3],u_UserData0[2][0]);
+vec4 glow_color = vec4(u_UserData0[1][0],u_UserData0[1][1],u_UserData0[1][2],u_UserData0[2][1]);
+float thickness = u_UserData0[1][3];
+float Speed = u_UserData0[2][2];
+float Glow = u_UserData0[2][3];
+float AmpX = u_UserData0[3][0];
+float AmpY = u_UserData0[3][1];
 
 
 //----------------------------------------------
@@ -40,13 +72,7 @@ float AmpY = CoronaVertexUserData.w;
 uniform int lightning_number = 5;
 vec2 Amplitude = vec2( AmpX, AmpY );
 uniform float offset = 0.5;
-uniform float thickness = .02;
-//uniform float Glow = 0.08;
-//uniform float Speed = 1.0;
-
-uniform vec4 base_color = vec4(1.0, 1.0, 1.0, 1.0); // : source_color
-uniform vec4 glow_color = vec4(0.2, 0, 0.8, 0.0); // : source_color
-uniform float alpha = 1.0; // : hint_range(0, 1)
+float alpha = 1.0; // : hint_range(0, 1)
 
 
 //----------------------------------------------
@@ -100,6 +126,13 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
   //----------------------------------------------
 
   vec2 uv = UV;
+  // Rotate bolt field around center so Angle tweaks strike direction.
+  {
+    vec2 cuv = uv - vec2( 0.5 );
+    float ca = cos( Bolt_Angle );
+    float sa = sin( Bolt_Angle );
+    uv = vec2( cuv.x * ca - cuv.y * sa, cuv.x * sa + cuv.y * ca ) + vec2( 0.5 );
+  }
   vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
   
   vec2 t ;

@@ -56,7 +56,7 @@ M.load_list = function( kFdr_, aFN_, iU_, bKeep_ )    --@kFilePrefix, @aFileName
             madShdr[iU_][_fileNm] = m.extract_info( _d[#_d] )
         end
     end
-    -- when merging a second source folder (ported) with bKeep, interleave globally A-Z
+    -- when merging a second source folder (reviewing) with bKeep, interleave globally A-Z
     if bKeep_ and maaList[iU_] then
         table.sort(maaList[iU_], function(a,b) return a:lower() < b:lower() end)
     elseif maaList[iU_] then
@@ -203,6 +203,7 @@ M.bank_get_list = function( iU_ ) return maaList[iU_ or miUN_cur] end
 M.bank_get_union = function() return miUN_cur end
 M.bank_get_index = function( iU_ ) if iU_ then return maaSel[iU_] or 1 end return miBF_cur end
 M.bank_get_count = function( iU_ ) local _a = maaList[iU_ or miUN_cur] return _a and #_a or 0 end
+M.bank_is_empty = function( iU_ ) return M.bank_get_count( iU_ ) == 0 end
 M.bank_get_textureWrap = function( ) return m.get_cur_data().textureWrap    end
 M.bank_get_dVertex = function( )    if not  m.get_cur_data().vertexData then print('Debug: No VertexData Found!') return nil end
 return  m.get_cur_data().vertexData    end
@@ -238,7 +239,7 @@ return _dN    end
 -------------------------------------------------------------------------------------------------
 --=== Apply Shader in Bank
 M.bank_apply = function( self, o_, t_ )  --@oImg, @tOpt
-    if not m.get_cur_data() then print("no previous shader found!") return end
+    if M.bank_is_empty() then print("bank_apply: union empty, skipped") return self end
     local _k = m.get_kernal_path( m.get_cur_data() )
     M.apply_U( self, _k, o_, t_ )
 return self    end

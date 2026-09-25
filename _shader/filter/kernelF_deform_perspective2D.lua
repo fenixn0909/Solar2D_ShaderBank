@@ -29,8 +29,8 @@ kernel.name = "perspective2D"
 
 kernel.vertexData =
 {
-  { name = "FOV",      default = 30, min = 1, max = 179, index = 0, },
-  { name = "Inset",    default = 0.5, min = -10, max = 10, index = 1, },
+  { name = "Process",  default = 1,  min = 0,   max = 1,   index = 0, },
+  { name = "FOV",      default = 30, min = 1, max = 179, index = 1, },
   { name = "RotX",     default = 30, min = -180, max = 180, index = 2, },
   { name = "RotY",     default = 30, min = -180, max = 180, index = 3, },
 } 
@@ -39,10 +39,11 @@ kernel.vertex =
 [[
 
 
-float FOV = CoronaVertexUserData.x;
-float Inset = CoronaVertexUserData.y;
+float FOV = CoronaVertexUserData.y;
 float RotX = CoronaVertexUserData.z;
 float RotY = CoronaVertexUserData.w;
+// Process lives in UserData.x (fragment-only); Inset fixed at 0.5.
+float Inset = 0.5;
 //----------------------------------------------
 // Camera FOV
 //float FOV = 30; //: hint_range(1, 179) 
@@ -113,10 +114,17 @@ bool cull_back = true;
 
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
-  if (cull_back && p.z <= 0.0) { discard; }
+  float Process = CoronaVertexUserData.x;
+
+  vec4 orig = texture2D( CoronaSampler0, texCoord );
+  // at Process 0 the sprite must stay fully visible: skip the discard
+  if (cull_back && p.z <= 0.0 && Process > 0.001) { discard; }
   vec2 uv = (p.xy / p.z).xy - o;
-  P_COLOR vec4 COLOR = texture2D( CoronaSampler0, uv + 0.5);
-  COLOR.a *= step(max(abs(uv.x), abs(uv.y)), 0.5);
+  vec4 warped = texture2D( CoronaSampler0, uv + 0.5);
+  warped.a *= step(max(abs(uv.x), abs(uv.y)), 0.5);
+
+  vec4 outc = mix( orig, warped, clamp( Process, 0.0, 1.0 ) );
+  P_COLOR vec4 COLOR = outc;
 
   return CoronaColorScale( COLOR );
 }

@@ -24,16 +24,16 @@ kernel.uniformData =
         type = "mat4",  -- vec4 x 4
         name = "uniSetting",
         paramName = {
+            'Process','','','',
             'From_R', 'From_G', 'From_B','From_A',
-            'To_R','To_G','To_B','To_A',    
+            'To_R','To_G','To_B','To_A',
             'Tolerance','','','',
-            '','','','',
         },
         default = {
+            1.0, 0.0, 0.0, 0.0,
             1.0, 1.0, 1.0, 1.0,
             0.0, 0.0, 0.0, 0.0,
-            0.5, 0.0, 0.0, 0.0,    
-            0.0, 0.0, 0.0, 0.0,
+            0.5, 0.0, 0.0, 0.0,
         },
         min = {
             0.0, 0.0, 0.0, 0.0,
@@ -44,7 +44,7 @@ kernel.uniformData =
         max = {
             1.0, 1.0, 1.0, 1.0,
             1.0, 1.0, 1.0, 1.0,
-            10.0, 1.0, 1.0, 1.0,
+            1.0, 1.0, 1.0, 1.0,
             1.0, 1.0, 1.0, 1.0,
         },
     },
@@ -54,12 +54,13 @@ kernel.uniformData =
 
 kernel.fragment =
 [[
-uniform sampler2D TEXTURE;
-uniform mat4 u_UserData0; // uniSetting
+uniform P_COLOR mat4 u_UserData0; // uniSetting
 
-vec4 Col_From = u_UserData0[0];
-vec4 Col_To = u_UserData0[1];
-float Tolerance = u_UserData0[2][1];
+vec4 Col_From = u_UserData0[1];
+vec4 Col_To = u_UserData0[2];
+// Tolerance lives in the 4th column, 1st component.
+float Tolerance = u_UserData0[3][0];
+float Process = u_UserData0[0][0];
 
 //----------------------------------------------
 
@@ -93,21 +94,25 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     
     //----------------------------------------------
     float _tol = Tolerance * Tolerance;
-        
-    vec4 tex = texture2D(TEXTURE, UV);
+
+    vec4 orig = texture2D( CoronaSampler0, UV );
+    vec4 tex = orig;
     vec3 source_hsv = rgb2hsv(tex.rgb);
     vec3 initial_hsv = rgb2hsv(Col_From.rgb);
     vec3 hsv_shift = rgb2hsv(Col_To.rgb) - initial_hsv;
-    
-    float hue = initial_hsv.r;
-    
-    // the .r here represents HUE, .g is SATURATION, .b is LUMINANCE
-    if (hue - source_hsv.r >= -_tol && hue - source_hsv.r <= +_tol)
+
+    // hue distance with wrap-around (0.9 <-> 0.1 are neighbours)
+    float dh = abs( initial_hsv.r - source_hsv.r );
+    dh = min( dh, 1.0 - dh );
+
+    if ( dh <= _tol )
     {
         vec3 final_hsv = source_hsv + hsv_shift;
+        final_hsv.r = fract( final_hsv.r );
         tex.rgb = hsv2rgb(final_hsv);
     }
-    
+
+    tex.rgb = mix( orig.rgb, tex.rgb, clamp( Process, 0.0, 1.0 ) );
     COLOR = tex;
 
     //----------------------------------------------

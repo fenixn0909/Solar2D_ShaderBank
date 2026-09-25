@@ -20,21 +20,53 @@ kernel.name = "melt70s"
 
 kernel.isTimeDependent = true
 
-kernel.vertexData =
+kernel.vertexData = nil
+
+kernel.uniformData =
 {
-  { name = "Speed",         default = 6, min = 0, max = 20, index = 0, },
-  { name = "Zoom",          default = 40, min = 0, max = 200, index = 1, },
-  { name = "Brightness",    default = .95, min = .5, max = 2, index = 2, },
-  { name = "Scale",         default = 1, min = -8, max = 8, index = 3, },
-} 
+    {
+        index = 0,
+        type = "mat4",
+        name = "uniSetting",
+        paramName = {
+            'Speed','Zoom','Brightness','Scale',
+            'Swirl','Color_Shift','Vignette','Flow',
+            '','','','',
+            '','','','',
+        },
+        default = {
+            6,40,.95,1,
+            1,0,1,1,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        min = {
+            0,2,.5,-8,
+            0,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        max = {
+            20,200,2,8,
+            3,6.28318,2,3,
+            0,0,0,0,
+            0,0,0,0,
+        },
+    },
+}
 
 kernel.fragment =
 [[
 
-float Speed = CoronaVertexUserData.x;
-float Zoom = CoronaVertexUserData.y;
-float Brightness = CoronaVertexUserData.z;
-float Scale = CoronaVertexUserData.w;
+uniform P_COLOR mat4 u_UserData0;
+float Speed = u_UserData0[0][0];
+float Zoom = u_UserData0[0][1];
+float Brightness = u_UserData0[0][2];
+float Scale = u_UserData0[0][3];
+float Swirl = u_UserData0[1][0];
+float Color_Shift = u_UserData0[1][1];
+float Vignette = u_UserData0[1][2];
+float Flow = u_UserData0[1][3];
 
 //----------------------------------------------
 
@@ -64,9 +96,16 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     float time = iTime * Speed;
     vec2 uv = fragCoord.xy / iResolution.xy;
     vec2 p  = (2.0*fragCoord.xy-iResolution.xy)/max(iResolution.x,iResolution.y);
+    // Swirl spins the domain; Flow scales the drift boosts.
+    {
+        vec2 cuv = p;
+        float ca = cos( Swirl * time * 0.1 );
+        float sa = sin( Swirl * time * 0.1 );
+        p = vec2( cuv.x * ca - cuv.y * sa, cuv.x * sa + cuv.y * ca );
+    }
     float ct = cosRange(time*5.0, 3.0, 1.1);
-    float xBoost = cosRange(time*0.2, 5.0, 5.0);
-    float yBoost = cosRange(time*0.1, 10.0, 5.0);
+    float xBoost = cosRange(time*0.2, 5.0, 5.0) * Flow;
+    float yBoost = cosRange(time*0.1, 10.0, 5.0) * Flow;
 
     float fScale = cosRange(time * 15.5, 1.25, 0.5) * Scale ;
 
@@ -78,11 +117,11 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
         p=newp;
     }
 
-    vec3 col=vec3(0.5*sin(3.0*p.x)+0.5,0.5*sin(3.0*p.y)+0.5,sin(p.x+p.y));
+    vec3 col=vec3(0.5*sin(3.0*p.x+Color_Shift)+0.5,0.5*sin(3.0*p.y+Color_Shift*1.3)+0.5,sin(p.x+p.y+Color_Shift));
     col *= Brightness;
       
     // Add border
-    float vigAmt = 5.0;
+    float vigAmt = 5.0 * Vignette;
     float vignette = (1.-vigAmt*(uv.y-.5)*(uv.y-.5))*(1.-vigAmt*(uv.x-.5)*(uv.x-.5));
     float extrusion = (col.x + col.y + col.z) / 4.0;
     extrusion *= 1.5;

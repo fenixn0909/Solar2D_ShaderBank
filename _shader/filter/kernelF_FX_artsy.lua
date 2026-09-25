@@ -50,7 +50,8 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
   // clamp size to avoid huge loops (max 4 as per vertex max)
   float size = clamp(Size, 0.0, 4.0);
 
-  vec4 c = texture2D(CoronaSampler0, UV, 0.0);
+  vec4 orig = texture2D(CoronaSampler0, UV);
+  vec4 c = orig;
   // early out if size ==0 : no artsy, just tint
   if (size > 0.05) {
     for (float x = -4.0; x <= 4.0; x += 1.0)
@@ -69,7 +70,13 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
   }
 
   // r,g,b now visibly tint the picked color (real-time)
-  c.rgb += vec3(R, G, B) * 0.35;
+  // keep the paint inside the silhouette: outside stays transparent
+  if (orig.a < 0.01) {
+    c = vec4(0.0);
+  } else {
+    c.rgb += vec3(R, G, B) * 0.35;
+    c.a = orig.a;
+  }
 
   return CoronaColorScale( c );
 }

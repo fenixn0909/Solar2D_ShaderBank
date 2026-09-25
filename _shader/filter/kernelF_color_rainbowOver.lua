@@ -14,9 +14,10 @@ kernel.name = "rainbowOver"
 kernel.isTimeDependent = true
 
 kernel.vertexData = {
-  { name = "Strength", default = 0.5, min = 0, max = 1, index = 0, },
+  { name = "Process", default = 0.5, min = 0, max = 1, index = 0, },
   { name = "Speed",    default = 2.5, min = 0, max = 10, index = 1, },
   { name = "Angle",    default = 45,  min = 0, max = 360, index = 2, },
+  { name = "Scale",    default = 1,   min = 0.25, max = 4, index = 3, },
 }
 
 kernel.fragment =
@@ -24,13 +25,14 @@ kernel.fragment =
 
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
-  float strength = CoronaVertexUserData.x;
+  float process  = CoronaVertexUserData.x;
   float speed    = CoronaVertexUserData.y;
   float angle    = CoronaVertexUserData.z;
+  float scale    = CoronaVertexUserData.w;
 
   P_COLOR vec4 finColor = texture2D(CoronaSampler0, texCoord);
-  float hue = texCoord.x * cos(radians(angle)) - texCoord.y * sin(radians(angle));
-  hue = fract(hue + fract(CoronaTotalTime * speed));
+  float hue = ( texCoord.x * cos(radians(angle)) - texCoord.y * sin(radians(angle)) ) * scale;
+  hue = fract(hue + fract(CoronaTotalTime * speed * 0.15));
   float x = 1. - abs(mod(hue / (1./6.), 2.) - 1.);
   vec3 rainbow;
   if(hue < 1./6.){
@@ -48,7 +50,7 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
   }
   rainbow.rgb *= finColor.a;
   vec4 color = texture2D(CoronaSampler0, texCoord);
-  finColor = mix(color, vec4(rainbow, color.a), strength);
+  finColor = mix(color, vec4(rainbow, color.a), clamp( process, 0.0, 1.0 ) );
   finColor.rgb *= finColor.a;
   return CoronaColorScale(finColor);
 }

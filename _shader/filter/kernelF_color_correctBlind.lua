@@ -17,16 +17,16 @@ kernel.name = "correctBlind"
 
 kernel.vertexData =
 {
-  { name = "Mode",      default = 2,   min = 0, max = 2, index = 0, },
-  { name = "Intensity", default = 1,   min = 0, max = 1, index = 1, },
-  { name = "Blend",     default = 1,   min = 0, max = 1, index = 2, },
+  { name = "Process",   default = 1,   min = 0, max = 1, index = 0, },
+  { name = "Mode",      default = 2,   min = 0, max = 2, index = 1, },
+  { name = "Intensity", default = 1,   min = 0, max = 1, index = 2, },
 }
 
 kernel.fragment =
 [[
-int   Mode      = int(CoronaVertexUserData.x + 0.5);
-float Intensity = CoronaVertexUserData.y;
-float Blend     = CoronaVertexUserData.z;
+float Process   = CoronaVertexUserData.x;
+int   Mode      = int(CoronaVertexUserData.y + 0.5);
+float Intensity = CoronaVertexUserData.z;
 
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
@@ -69,7 +69,7 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
     correction = tex + correction;
     correction.a = tex.a * Intensity;
 
-    COLOR = mix(tex, correction, clamp(Blend,0.0,1.0));
+    COLOR = mix(tex, correction, clamp(Process,0.0,1.0));
 
   return CoronaColorScale( COLOR );
 }

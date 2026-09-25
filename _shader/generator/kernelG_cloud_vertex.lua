@@ -22,6 +22,8 @@ kernel.vertexData =
 {
   { name = "Speed",                         default = .25, min = -5, max = 5, index = 0, },
   { name = "Spread",                        default = 1, min = 0, max = 2, index = 1, },
+  { name = "Density",                       default = 1, min = 0, max = 2.5, index = 2, },
+  { name = "Brightness",                    default = 1, min = 0, max = 3, index = 3, },
 } 
 
 kernel.fragment =
@@ -29,6 +31,8 @@ kernel.fragment =
 
 float Speed = CoronaVertexUserData.x;
 float Spread = CoronaVertexUserData.y;
+float Density = CoronaVertexUserData.z;
+float Brightness = CoronaVertexUserData.w;
 //----------------------------------------------
 
 //P_COLOR vec4 Col_Sky = vec4(0.5, 0.7, 0.85, 0);
@@ -115,11 +119,12 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     float l1 = fract((iTime) / 5.) + 1.;
     float l2 = fract((iTime + 0.6) / 2.) + 1.5;
         
-    vec4 col = vec4(genCloud(uv, orig, 1.65), 0.);    
-    col = mix(col, vec4(genCloud(uv2, orig, 3.8), 0.), 0.5);
-    col = mix(col, vec4(genCloud(uv3, orig, 0.5), 0.), 0.3);
+    vec4 col = vec4(genCloud(uv, orig, 1.65 * Density), 0.);    
+    col = mix(col, vec4(genCloud(uv2, orig, 3.8 * Density), 0.), 0.5);
+    col = mix(col, vec4(genCloud(uv3, orig, 0.5 * Density), 0.), 0.3);
 
-    col = mix(1. - (col * .2), sky, 1. - col);    
+    col = mix(1. - (col * .2), sky, 1. - col);
+    col.rgb *= Brightness;
         
     //----------------------------------------------
     COLOR = col;

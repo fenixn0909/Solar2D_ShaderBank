@@ -25,39 +25,52 @@ kernel.group = "scene"
 kernel.name = "starnest"
 kernel.isTimeDependent = true 
 
-kernel.vertexData =
+kernel.vertexData = nil
+
+kernel.uniformData =
 {
-  { name = "Speed",      default = 0.3, min = -3, max = 3, index = 0, },
-  { name = "Formuparam",     default = 0.865, min = 0.5, max = 1, index = 1, },
-  { name = "Stepsize",      default = 0.3, min = 0, max = 0.8, index = 2, },
-  { name = "Zoom",      default = 0.8, min = -10, max = 10, index = 3, },
-} 
-
-
-
-kernel.vertex =
-[[
-varying P_UV vec2 slot_size;
-varying P_UV vec2 sample_uv_offset;
-
-P_POSITION vec2 VertexKernel( P_POSITION vec2 position )
-{ 
-  slot_size = vec2( u_TexelSize.z, u_TexelSize.w ) * v_UserData.x; // multiply textureRatio to get matching UV of palette.
-  sample_uv_offset = ( slot_size * 0.5 );
-
-  //position.x += CoronaTotalTime * 0.1;
-
-  return position;
+    {
+        index = 0,
+        type = "mat4",
+        name = "uniSetting",
+        paramName = {
+            'Speed','Formuparam','Stepsize','Zoom',
+            'Angle','','','',
+            '','','','',
+            '','','','',
+        },
+        default = {
+            .3,.865,.3,.8,
+            0,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        min = {
+            -3,.5,0,-10,
+            0,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        max = {
+            3,1,.8,10,
+            6.28318,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+    },
 }
-]]
+
+
 
 kernel.fragment =
 [[
 
-float Speed = CoronaVertexUserData.x;  
-float Formuparam = CoronaVertexUserData.y;  // Pattern
-float Stepsize = CoronaVertexUserData.z;
-float Zoom = CoronaVertexUserData.w;
+uniform P_COLOR mat4 u_UserData0;
+float Speed = u_UserData0[0][0];
+float Formuparam = u_UserData0[0][1];
+float Stepsize = u_UserData0[0][2];
+float Zoom = u_UserData0[0][3];
+float Spin_Angle = u_UserData0[1][0];
 
 //----------------------------------------------
 
@@ -102,6 +115,11 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     //vec2 uv=FRAGCOORD.xy/iResolution.xy;
     vec2 uv=UV.xy/iResolution.xy;
     uv.y*=iResolution.y/iResolution.x;
+    {
+        float ca = cos( Spin_Angle );
+        float sa = sin( Spin_Angle );
+        uv = vec2( uv.x * ca - uv.y * sa, uv.x * sa + uv.y * ca );
+    }
     vec3 dir=vec3(uv*Zoom,1.);
 
     vec3 from=vec3(1.0,0.5,0.5);

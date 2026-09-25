@@ -20,21 +20,52 @@ kernel.name = "topdown"
 
 kernel.isTimeDependent = true
 
-kernel.vertexData =
+kernel.vertexData = nil
+
+kernel.uniformData =
 {
-  { name = "Speed",       default = .25, min = -20, max = 20, index = 0, },
-  { name = "Brightness",  default = 0.85, min = -2, max = 2, index = 1, },
-  { name = "Cover",       default = 0.1, min = -10, max = 10, index = 2, },
-  { name = "Zoom",       default =  1.1, min = 0, max = 50, index = 3, },
-} 
+    {
+        index = 0,
+        type = "mat4",
+        name = "uniSetting",
+        paramName = {
+            'Speed','Brightness','Cover','Zoom',
+            'Move_Angle','','','',
+            '','','','',
+            '','','','',
+        },
+        default = {
+            .25,.85,.1,1.1,
+            .785398,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        min = {
+            -20,-2,-10,0,
+            0,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        max = {
+            20,2,10,50,
+            6.28318,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+    },
+}
 
 
 kernel.fragment =
 [[
-float Speed = CoronaVertexUserData.x;
-float Brightness = CoronaVertexUserData.y;
-float Cover = CoronaVertexUserData.z;
-float Zoom = CoronaVertexUserData.w;
+
+uniform P_COLOR mat4 u_UserData0;
+float Speed = u_UserData0[0][0];
+float Brightness = u_UserData0[0][1];
+float Cover = u_UserData0[0][2];
+float Zoom = u_UserData0[0][3];
+float Move_Angle = u_UserData0[1][0];
+vec2 Move_Dir = vec2( cos( Move_Angle ), sin( Move_Angle ) );
 
 P_UV vec2 iResolution = vec2(1,1);
 //----------------------------------------------
@@ -107,16 +138,19 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     //uv.y = uv.y*TIME* 1.5;
 
     float time = TIME * Speed;
+    // Directional drift: at the 45-degree default this equals the
+    // original diagonal (time,time) drift exactly.
+    vec2 drift = Move_Dir * ( time * 1.41421356 );
     float q = fbm(uv * Zoom * 0.5);
 
     //ridged noise shape
     float r = 0.0;
     uv *= Zoom;
-    uv -= q - time;
+    uv -= q - drift;
     float weight = 0.8;
     for (int i=0; i<8; i++){
     r += abs(weight*noise( uv ));
-        uv = m*uv + time;
+        uv = m*uv + drift;
     weight *= 0.7;
     }
 
@@ -124,11 +158,11 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     float f = 0.0;
     uv = p*vec2(iResolution.x/iResolution.y,1.0);
     uv *= Zoom;
-    uv -= q - time;
+    uv -= q - drift;
     weight = 0.7;
     for (int i=0; i<8; i++){
     f += weight*noise( uv );
-        uv = m*uv + time;
+        uv = m*uv + drift;
     weight *= 0.6;
     }
 
@@ -137,26 +171,28 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     //noise colour
     float c = 0.0;
     time = TIME * Speed * 2.0;
+    drift = Move_Dir * ( time * 1.41421356 );
     uv = p*vec2(iResolution.x/iResolution.y,1.0);
     uv *= Zoom*2.0;
-    uv -= q - time;
+    uv -= q - drift;
     weight = 0.4;
     for (int i=0; i<7; i++){
     c += weight*noise( uv );
-        uv = m*uv + time;
+        uv = m*uv + drift;
     weight *= 0.6;
     }
 
     //noise ridge colour
     float c1 = 0.0;
     time = TIME * Speed * 3.0;
+    drift = Move_Dir * ( time * 1.41421356 );
     uv = p*vec2(iResolution.x/iResolution.y,1.0);
     uv *= Zoom*3.0;
-    uv -= q - time;
+    uv -= q - drift;
     weight = 0.4;
     for (int i=0; i<7; i++){
     c1 += abs(weight*noise( uv ));
-        uv = m*uv + time;
+        uv = m*uv + drift;
     weight *= 0.6;
     }
 

@@ -89,15 +89,18 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
 {
   
     //----------------------------------------------
+    // Progress drives both disc size (below) and sweep angle, so the
+    // shield visibly rotates as it grows/shrinks out of the box.
+    float effAngle = Angle + Progress * 6.283184;
     vec2 center = vec2(0.5);
     vec2 delta = UV - center;
     vec2 center_uv = length(delta) > 0.0001 ? normalize(delta) : vec2(1.0, 0.0);
     float is = 1.0 - smoothstep(max(0.49*Progress, 0.001), max(0.5*Progress, 0.002), distance(center, UV));
     
-    vec2 frst_border = vec2(cos(Angle+Angle_Spread/2.0), sin(Angle+Angle_Spread/2.0));
-    vec2 sec_boreder = vec2(cos(Angle-Angle_Spread/2.0), sin(Angle-Angle_Spread/2.0));
+    vec2 frst_border = vec2(cos(effAngle+Angle_Spread/2.0), sin(effAngle+Angle_Spread/2.0));
+    vec2 sec_boreder = vec2(cos(effAngle-Angle_Spread/2.0), sin(effAngle-Angle_Spread/2.0));
     
-    vec2 radial_center = vec2(cos(Angle), sin(Angle));
+    vec2 radial_center = vec2(cos(effAngle), sin(effAngle));
     
     float posx = step(0.0, radial_center.x); // is radial_center.x positive
     float posy = step(0.0, radial_center.y); // is radial_center.y positive
@@ -131,6 +134,16 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
 
     COLOR.a = sector*is*border_factor*mix(Col_Plasma.a, Col_Edge.a, edge_radial_factor)*edge_fade_factor;
     COLOR.rgb = mix(Col_Plasma.rgb, Col_Edge.rgb, edge_radial_factor);
+    //----------------------------------------------
+    // Outer rim always displayed: a persistent full-circle border at
+    // max radius so the shield reads even at Progress 0 / narrow spread.
+    {
+        float rimD = abs( distance( center, UV ) - 0.5 );
+        float rimW = 0.004 + Border_Offset * 0.012;
+        float rim = 1.0 - smoothstep( 0.0, rimW, rimD );
+        COLOR.a = max( COLOR.a, rim * Col_Edge.a * 0.9 );
+        COLOR.rgb = mix( COLOR.rgb, Col_Edge.rgb, rim * 0.9 );
+    }
     //----------------------------------------------
     //COLOR.rgb *= COLOR.a;
 

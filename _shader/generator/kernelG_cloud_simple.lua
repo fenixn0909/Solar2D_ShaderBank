@@ -21,13 +21,40 @@ kernel.name = "simple" -- One Layer
 
 kernel.isTimeDependent = true
 
-kernel.vertexData =
+kernel.vertexData = nil
+
+kernel.uniformData =
 {
-  { name = "Speed",       default = 1.0, min = -50, max = 50, index = 0, },
-  { name = "Brightness",  default = 0.85, min = 0.3, max = 1.5, index = 1, },
-  { name = "Cover",       default = 0.1, min = -1.5, max = 0.8, index = 2, },
-  { name = "Zoom",       default = 1.25, min = 0.25, max = 100, index = 3, },
-} 
+    {
+        index = 0,
+        type = "mat4",
+        name = "uniSetting",
+        paramName = {
+            'Speed','Brightness','Cover','Zoom',
+            'Move_Angle','','','',
+            '','','','',
+            '','','','',
+        },
+        default = {
+            1,.85,.1,1.25,
+            3.14159,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        min = {
+            -50,.3,-1.5,.25,
+            0,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        max = {
+            50,1.5,.8,100,
+            6.28318,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+    },
+}
 
 kernel.fragment =
 [[
@@ -35,15 +62,17 @@ kernel.fragment =
 P_UV vec2 iResolution = vec2( 1, 1 );   // cloud width height
 //----------------------------------------------
 
-float Speed = CoronaVertexUserData.x;
-float Brightness = CoronaVertexUserData.y;
-float Cover = CoronaVertexUserData.z;
-float Zoom = CoronaVertexUserData.w;  // Multiplier of UV, a higher number is for "Zooming out"
+uniform P_COLOR mat4 u_UserData0;
+float Speed = u_UserData0[0][0];
+float Brightness = u_UserData0[0][1];
+float Cover = u_UserData0[0][2];
+float Zoom = u_UserData0[0][3];  // Multiplier of UV, a higher number is for "Zooming out"
+float Move_Angle = u_UserData0[1][0];
 
 P_COLOR vec4 Col_Sky = vec4(0);
 P_COLOR vec4 Col_Cloud = vec4(1.);
 
-P_UV vec2 Direction = vec2( -1, 0);
+P_UV vec2 Direction = vec2( cos( Move_Angle ), sin( Move_Angle ) );
 
 // cloud shape: w/h freq, zoom-ish
 const mat2 m2 = mat2(1.6,  1.2, -1.2,  1.6);      // Normal

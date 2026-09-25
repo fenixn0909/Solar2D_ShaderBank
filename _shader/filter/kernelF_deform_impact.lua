@@ -13,13 +13,13 @@ kernel.language = "glsl"
 kernel.category = "filter"
 kernel.group = "deform"
 kernel.name = "impact"
-kernel.isTimeDependent = true
+kernel.isTimeDependent = false
 
 kernel.vertexData   = {
-  { name = "Force",     default = 0.15, min = 0, max = 0.5, index = 0, },
-  { name = "Size",      default = 0.25, min = 0, max = 0.8, index = 1, },
-  { name = "Thickness", default = 0.12, min = 0.02, max = 0.4, index = 2, },
-  { name = "Speed",     default = 1,    min = 0, max = 10,  index = 3, },
+  { name = "Process",   default = 1,    min = 0, max = 1,   index = 0, },
+  { name = "Force",     default = 0.15, min = 0, max = 0.5, index = 1, },
+  { name = "Size",      default = 0.25, min = 0, max = 0.8, index = 2, },
+  { name = "Thickness", default = 0.12, min = 0.02, max = 0.4, index = 3, },
 }
 
 kernel.fragment =
@@ -27,11 +27,10 @@ kernel.fragment =
 
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
-  float force     = CoronaVertexUserData.x;
-  float size      = CoronaVertexUserData.y;
-  float thickness = CoronaVertexUserData.z;
-  // speed could drive time pulse if needed
-  // float speed = CoronaVertexUserData.w;
+  float process   = CoronaVertexUserData.x;
+  float force     = CoronaVertexUserData.y;
+  float size      = CoronaVertexUserData.z;
+  float thickness = CoronaVertexUserData.w;
 
   vec2 SCREEN_UV = texCoord;
   vec2 center = vec2(0.5, 0.5);
@@ -44,7 +43,9 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
   vec2 disp = normalize(scaledUV - center + vec2(0.0001)) * force * mask;
   // keep background visible where no displacement
   vec2 uv = clamp(SCREEN_UV - disp, vec2(0.0), vec2(1.0));
-  P_COLOR vec4 texColor = texture2D(CoronaSampler0, uv);
+  P_COLOR vec4 warped = texture2D(CoronaSampler0, uv);
+  P_COLOR vec4 orig = texture2D(CoronaSampler0, SCREEN_UV);
+  P_COLOR vec4 texColor = mix( orig, warped, clamp( process, 0.0, 1.0 ) );
   texColor.rgb *= texColor.a;
   return CoronaColorScale(texColor);
 }

@@ -14,21 +14,50 @@ kernel.name = "rainSnow"
 
 kernel.isTimeDependent = true
 
-kernel.vertexData =
+kernel.vertexData = nil
+
+kernel.uniformData =
 {
-  { name = "BaseSpd",     default = 0.5, min = -5, max = 5, index = 0, },
-  { name = "Amount",      default = 500, min = 0, max = 1000, index = 1, },
-  { name = "Slant",      default = 0.2, min = -10, max = 10, index = 2, },
-  { name = "FarRainW",      default = 0.2, min = -1, max = 1, index = 3, },
-} 
+    {
+        index = 0,
+        type = "mat4",
+        name = "uniSetting",
+        paramName = {
+            'BaseSpd','Amount','Slant','FarRainW',
+            'Move_Angle','','','',
+            '','','','',
+            '','','','',
+        },
+        default = {
+            .5,500,.2,.2,
+            0,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        min = {
+            -5,0,-10,-1,
+            0,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        max = {
+            5,1000,10,1,
+            6.28318,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+    },
+}
 
 kernel.fragment =
 [[
 
-float BaseSpd = CoronaVertexUserData.x;
-float Amount = CoronaVertexUserData.y;
-float Slant = CoronaVertexUserData.z;    // vec2(0,0.2): rise, vec2(1,-.1): left lines
-float FarRainW = CoronaVertexUserData.w;
+uniform P_COLOR mat4 u_UserData0;
+float BaseSpd = u_UserData0[0][0];
+float Amount = u_UserData0[0][1];
+float Slant = u_UserData0[0][2];    // vec2(0,0.2): rise, vec2(1,-.1): left lines
+float FarRainW = u_UserData0[0][3];
+float Move_Angle = u_UserData0[1][0];
 //----------------------------------------------
 
 //uniform float BaseSpd = 0.0; // : hint_range(0.1, 1.0) 
@@ -68,11 +97,20 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     // Uncomment the following line if you are applying the shader to a TextureRect and using a version of Godot before 4.
     //  COLOR = texture(TEXTURE,UV);
 
+    // Move_Angle rotates the fall direction so rain/snow drift is tweakable.
+    vec2 baseUV = UV;
+    {
+        vec2 cuv = baseUV - vec2( 0.5 );
+        float ca = cos( Move_Angle );
+        float sa = sin( Move_Angle );
+        baseUV = vec2( cuv.x * ca - cuv.y * sa, cuv.x * sa + cuv.y * ca ) + vec2( 0.5 );
+    }
+
     vec2 uv = vec2(0.0);
-    float remainder = mod(UV.x - UV.y * Slant, 1.0 / Amount);
-    uv.x = (UV.x - UV.y * Slant) - remainder;
+    float remainder = mod(baseUV.x - baseUV.y * Slant, 1.0 / Amount);
+    uv.x = (baseUV.x - baseUV.y * Slant) - remainder;
     float rn = fract(sin(uv.x * Amount));
-    uv.y = fract((UV.y + rn));
+    uv.y = fract((baseUV.y + rn));
 
 
     vec4 rainC;

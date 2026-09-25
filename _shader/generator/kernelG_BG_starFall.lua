@@ -22,13 +22,40 @@ kernel.isTimeDependent = true
 
 
 
-kernel.vertexData =
+kernel.vertexData = nil
+
+kernel.uniformData =
 {
-  { name = "Speed",     default = -1, min = -50, max = 50, index = 0, },
-  { name = "Volume",      default = 20, min = 1, max = 45, index = 1, },
-  { name = "LenX",      default = 0, min = -.7, max = 1, index = 2, },
-  { name = "LenY",      default = 0.2, min = -.7, max = 1, index = 3, },
-} 
+    {
+        index = 0,
+        type = "mat4",
+        name = "uniSetting",
+        paramName = {
+            'Speed','Volume','LenX','LenY',
+            'Move_Angle','','','',
+            '','','','',
+            '','','','',
+        },
+        default = {
+            -1,20,0,.2,
+            0,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        min = {
+            -50,1,-.7,-.7,
+            0,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        max = {
+            50,45,1,1,
+            6.28318,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+    },
+}
 
 kernel.fragment =
 [[
@@ -36,10 +63,12 @@ kernel.fragment =
 uniform vec4 u_resolution;
 
 
-float Speed = CoronaVertexUserData.x;
-float Volume = CoronaVertexUserData.y;
-float LenX = CoronaVertexUserData.z;    // vec2(0,0.2): rise, vec2(1,-.1): left lines
-float LenY = CoronaVertexUserData.w;
+uniform P_COLOR mat4 u_UserData0;
+float Speed = u_UserData0[0][0];
+float Volume = u_UserData0[0][1];
+float LenX = u_UserData0[0][2];    // vec2(0,0.2): rise, vec2(1,-.1): left lines
+float LenY = u_UserData0[0][3];
+float Move_Angle = u_UserData0[1][0];
 //----------------------------------------------
 
 int when_gt(float x, float y) { //greater than return 1
@@ -55,6 +84,13 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     {
     
     //----------------------------------------------
+    // Move_Angle rotates the whole streak field so fall direction is tweakable.
+    {
+        vec2 cuv = UV - vec2( 0.5 );
+        float ca = cos( Move_Angle );
+        float sa = sin( Move_Angle );
+        UV = vec2( cuv.x * ca - cuv.y * sa, cuv.x * sa + cuv.y * ca ) + vec2( 0.5 );
+    }
 
     COLOR *= 0.;
     

@@ -33,6 +33,15 @@
                                             Creator: phoenixongogo, 2024 Dec.       License: MIT         
 ]]
 
+
+-- require("_mcp_touch")  -- Auto-injected by MCP server
+-- require("_mcp_screenshot")  -- Auto-injected by MCP server
+-- require("_mcp_logger")  -- Auto-injected by MCP server
+
+display.setDefault( 'isShaderCompilerVerbose', true )
+display.setStatusBar( display.HiddenStatusBar )
+-- display.setDefault( "textureWrapX", "repeat" )
+-- display.setDefault( "textureWrapY", "repeat" )
 ----------------------------------------------------------------------------------------------------
 -- Hard Coded Referance
 ----------------------------------------------------------------------------------------------------
@@ -50,25 +59,21 @@ local mC_pthG = "_shader/generator/"
 local mC_pthF = "_shader/filter/"
 local mC_pthT = "_shader/filter_trans/"
 local mC_pthC = "_shader/composite/"
+local mC_bReviewMode = false
 
 -- Second source per category, merged into the same Generator/Filter/Composite
--- tabs at startup (see M.startup). No _shader/ported/filter_trans/ - nothing
+-- tabs at startup (see M.startup). No _shader/reviewing/filter_trans/ - nothing
 -- lives there yet, and file_get_match_sub/lfs.dir would error on a folder
 -- that doesn't exist on disk, so it's left out until it's actually needed.
-local mC_pthG2 = "_shader/ported/generator/"
-local mC_pthF2 = "_shader/ported/filter/"
-local mC_pthC2 = "_shader/ported/composite/"
+local mC_pthG2 = "_shader/reviewing/generator/"
+local mC_pthF2 = "_shader/reviewing/filter/"
+local mC_pthC2 = "_shader/reviewing/composite/"
 
 local mC_nMaxParams = 64
 local mC_aRectSize = { 320, 320 } -- None square for aspect debuging  { 320, 320 }
 ----------------------------------------------------------------------------------------------------
-display.setStatusBar( display.HiddenStatusBar )
--- display.setDefault( "textureWrapX", "repeat" )
--- display.setDefault( "textureWrapY", "repeat" )
+
 ----------------------------------------------------------------------------------------------------
-require("_mcp_touch")  -- Auto-injected by MCP server
-require("_mcp_screenshot")  -- Auto-injected by MCP server
-require("_mcp_logger")  -- Auto-injected by MCP server
 local shdilr = require( "_plugin.shdilr" )
 local inspect = require( "_plugin.inspect" ) -- Using only for Debuging
 local widget = require( "widget" )
@@ -88,9 +93,12 @@ local s_match = string.match
 local file_get_match_sub = function( sPth_, sPtrn_, sTrim_ ) --@strPath, @strPattern
     local _path = system.pathForFile( sPth_, system.ResourceDirectory )
     local _a = {}
+    -- missing folder (e.g. no reviewing shaders yet) is not an error: scan nothing
+    if _path and _lfs.attributes( _path, "mode" ) == "directory" then
     for file in _lfs.dir( _path ) do
         -- only real .lua files, ignore .rej/.orig backups from patches
         if file:match(sPtrn_) and file:match("%.lua$") then    _a[#_a+1] = file:gsub("%.lua$", "" )     end
+    end
     end
     -- A-Z for quick scroll to specific shader (case-insensitive)
     table.sort(_a, function(a,b) return a:lower() < b:lower() end)
@@ -168,6 +176,44 @@ M.startup = function()  -- Calls only once
 
 end
 
+m.toggle_review_mode = function( bReview_ )
+    mC_bReviewMode = bReview_
+    local _aList
+    if bReview_ then
+        -- review mode shows exactly what is in reviewing/*, even when a
+        -- folder is empty (empty list, no crash -- see bank_is_empty guards)
+        _aList = file_get_match_sub( mC_pthG2, '^%a.*', '.lua' )
+        shdilr.load_list( mC_pthG2:gsub('%/','%.'), _aList, 1, false )
+        _aList = file_get_match_sub( mC_pthF2, '^%a.*', '.lua' )
+        shdilr.load_list( mC_pthF2:gsub('%/','%.'), _aList, 2, false )
+        _aList = file_get_match_sub( "_shader/reviewing/filter_trans/", '^%a.*', '.lua' )
+        shdilr.load_list( "_shader.reviewing.filter_trans.", _aList, 3, false )
+        _aList = file_get_match_sub( mC_pthC2, '^%a.*', '.lua' )
+        shdilr.load_list( mC_pthC2:gsub('%/','%.'), _aList, 4, false )
+    else
+        _aList = file_get_match_sub( mC_pthG, '^%a.*', '.lua' )
+        shdilr.load_list( mC_pthG:gsub('%/','%.'), _aList, 1, false )
+        _aList = file_get_match_sub( mC_pthG2, '^%a.*', '.lua' )
+        shdilr.load_list( mC_pthG2:gsub('%/','%.'), _aList, 1, true )
+        _aList = file_get_match_sub( mC_pthF, '^%a.*', '.lua' )
+        shdilr.load_list( mC_pthF:gsub('%/','%.'), _aList, 2, false )
+        _aList = file_get_match_sub( mC_pthF2, '^%a.*', '.lua' )
+        shdilr.load_list( mC_pthF2:gsub('%/','%.'), _aList, 2, true )
+        _aList = file_get_match_sub( mC_pthT, '^%a.*', '.lua' )
+        shdilr.load_list( mC_pthT:gsub('%/','%.'), _aList, 3, false )
+        _aList = file_get_match_sub( mC_pthC, '^%a.*', '.lua' )
+        shdilr.load_list( mC_pthC:gsub('%/','%.'), _aList, 4, false )
+        _aList = file_get_match_sub( mC_pthC2, '^%a.*', '.lua' )
+        shdilr.load_list( mC_pthC2:gsub('%/','%.'), _aList, 4, true )
+    end
+    if moReviewMsg then moReviewMsg.isVisible = bReview_ end
+    -- entering a union with no shaders: show the honest empty state
+    -- instead of leaving a stale preview + sliders behind
+    if shdilr.bank_is_empty( miCateCur ) then m.apply_bank_shader() end
+    if miListCate ~= nil and moShaderListView and moShaderListView.isVisible then
+        m.refresh_shader_list( miListCate, false )
+    end
+end
 
 M.init = function()
     
@@ -185,6 +231,10 @@ M.init = function()
 
     m.init_switch( maoGrp[0], maoSwitch, mLsnr.aPage_switch ) -- Page Change
     moSegCon = m.new_segCon( maoGrp[0], mLsnr.segCon, mC_akCate ) -- Shader Category
+    moReviewMsg = display.newText{ parent= maoGrp[0], text= "Review Mode",
+        x= SCRN_DCX, y= SCRN_DB - 10, fontSize= 16, font= native.systemFont, align= "center" }
+    moReviewMsg:setFillColor( 1, 0, 0 )
+    moReviewMsg.isVisible = false
     m.init_shader_list( maoGrp[0] ) -- Overlay shader list (hidden by default)
 
     --=== Page: Param
@@ -565,7 +615,8 @@ m.apply_specific_shader = function( kC_, kN_ )  -- @keyCategory, @keyFileName
     end
 end
 
-mm.load_shader_data = function()
+mm.load_shader_data = function() -- returns false when the union is empty
+    if shdilr.bank_is_empty() then mtShdrData_cur = nil return false end
     local hasU = shdilr.bank_get_dUniform() ~= nil
     local hasV = shdilr.bank_get_dVertex() ~= nil
 
@@ -604,15 +655,22 @@ mm.load_shader_data = function()
     elseif hasU then
         mtShdrData_cur = shdilr.new_dUniform_mat4()
         mtShdrData_cur.dataType = 'TypD_Uniform'
-    else 
+    else
         mtShdrData_cur = shdilr.bank_get_dVertex() or {}
         mtShdrData_cur.dataType = 'TypD_Vertex'
     end
+    return true
 end
 
 m.apply_bank_shader = function()
 
-    mm.load_shader_data()
+    if not mm.load_shader_data() then
+        -- empty union (e.g. review mode with no shaders here):
+        -- clear preview + sliders instead of asserting
+        m.upd_UI( nil, mtoTextVD )
+        if maoImage[2] then shdilr.effect_off( maoImage[2] ) end
+        return
+    end
 
     shdilr.set_texture_wrap( shdilr.bank_get_textureWrap() )
     -- shdilr.set_texture_wrap( 'repeat' )
@@ -637,6 +695,15 @@ end
 ----------------------------------------------------------------------------------------------------
 
 m.upd_UI = function( d_, toText_ )
+
+    if not d_ or shdilr.bank_is_empty() then
+        toText_.filename.text = "(empty -- no shaders)"
+        toText_.kernal.text = ""
+        for i=1,mC_nMaxParams do
+            toggle_visible( false, toText_.tVD_name[i], toText_.tVD_float[i], maoSlider[i] )
+        end
+        return
+    end
 
     local _aD = d_
     toText_.kernal.text = shdilr.bank_get_kernal()
@@ -737,6 +804,12 @@ mm.go_mode = function( i_ )
     mLsnr.segCon{target={segmentNumber= i_}}--  {target={segmentNumber= i_}} e_.target.segmentNumber
 end
 mm.swap_shader = function( i_ )    local _akOpt = {'bank_prev','bank_next'}     assert(_akOpt[i_], 'invalid ind: '..i_)
+    if shdilr.bank_is_empty() then -- Prev/Next on an empty list is a no-op
+        if miListCate ~= nil and moShaderListView and moShaderListView.isVisible then
+            m.refresh_shader_list( miListCate, false )
+        end
+        return
+    end
     shdilr[_akOpt[i_]]()
     shdilr.bank_print_dbInfo()
     m.apply_bank_shader()
@@ -776,6 +849,7 @@ end
 ----------------------------------------------------------------------------------------------------
 
 mm.slider_value_to_percent = function( i_, d_, fV_ ) --@Index, @fValue
+    if not d_ then return end -- empty union: no sliders to drive
     local _tVD = d_[i_]
     local _fTick = (_tVD.max - _tVD.min) / 100
     local _percent = (fV_-_tVD.min) / _fTick
@@ -783,6 +857,7 @@ mm.slider_value_to_percent = function( i_, d_, fV_ ) --@Index, @fValue
 end
 
 mm.slider_percent_to_value = function( i_, d_, fV_ ) --@Index, @fPercentage
+    if not d_ then return end -- empty union: stale slider, ignore
     local _tVD = d_[i_]   if not _tVD then     return end
     local _fTick = (_tVD.max - _tVD.min) / 100
     local _value = fV_ * _fTick + _tVD.min
@@ -849,6 +924,10 @@ end
 mLsnr.scrView = function( e_ )  end
 
 mLsnr.onEvent_keyboard = function( e_ )
+    if e_.keyName == "p" and e_.phase == "down" then
+        m.toggle_review_mode( not mC_bReviewMode )
+        return
+    end
     if      (e_.phase == "up") then    if mtFn.iptU[ e_.keyName ] then     mtFn.iptU[ e_.keyName ]() end
     elseif  (e_.phase == "down") then  if mtFn.iptD[ e_.keyName ] then     mtFn.iptD[ e_.keyName ]() end
     end

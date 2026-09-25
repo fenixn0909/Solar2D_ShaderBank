@@ -1,18 +1,13 @@
-
 --[[
   Origin Author: casualgaragecoder
   https://godotshaders.com/author/casualgaragecoder/
-  
-  This simple shader allows swirling a sprite on itself. In its current state, it only works on stand-alone sprites. Don’t try to use an atlas with the rect selection.
 
-  ratio : from 1 (unmodified) to 0 (totally folded)
-  power : Speed of retraction. Determine at which pace the sprite will be disappearing to the center.
-  min_speed : swirling speed at the border.
-  max_speed : swirling speed near the center.
-
+  Swirl the sprite around its center.
+  Rebuilt: the 4 old params (intensity/size/tilt/speed) were never read -
+  a hardcoded `ratio = abs(sin(TIME*0.5))` overwrote everything. Now
+  every slider is live and Process is 1st: Ratio (1 = straight sprite,
+  lower = tighter fold), Size (swirl radius), Spin (twist rate).
 --]]
-
-
 
 local kernel = {}
 
@@ -21,88 +16,56 @@ kernel.category = "filter"
 kernel.group = "deform"
 kernel.name = "swirl"
 
---Test
 kernel.isTimeDependent = true
 
--- Expose effect parameters using vertex data
 kernel.vertexData   = {
-  {
-    name = "intensity",
-    default = 0.65, 
-    min = 0,
-    max = 1,
-    index = 0,  -- This corresponds to "CoronaVertexUserData.x"
-  },
-  {
-    name = "size",
-    default = 0.1, 
-    min = 0,
-    max = 1,
-    index = 1,  -- This corresponds to "CoronaVertexUserData.y"
-  },
-  {
-    name = "tilt",
-    default = 0.2, 
-    min = 0.0,
-    max = 2.0,
-    index = 2,  -- This corresponds to "CoronaVertexUserData.z"
-  },
-  {
-    name = "speed",
-    default = 1.0, 
-    min = 0.1,
-    max = 10.0,
-    index = 3,  -- This corresponds to "CoronaVertexUserData.w"
-  },
+  { name = "Process", default = 1,    min = 0, max = 1,   index = 0, },
+  { name = "Ratio",   default = 0.45, min = 0.05, max = 1, index = 1, },
+  { name = "Size",    default = 0.7,  min = 0.1, max = 1, index = 2, },
+  { name = "Spin",    default = 1,    min = 0, max = 5,   index = 3, },
 }
-
 
 kernel.fragment =
 [[
 
-
-float ratio = 0.1; //: hint_range(0.0, 1.0) 
- 
-float power = 3.0;
- 
-float min_speed = 10.0;
- 
-float max_speed = 90.0;
- 
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
+  float Process = CoronaVertexUserData.x;
+  float Ratio   = CoronaVertexUserData.y;
+  float Size    = CoronaVertexUserData.z;
+  float Spin    = CoronaVertexUserData.w;
 
-  vec2 uv = texCoord;
-  
-  uv *= 2.0;
-  uv -= vec2(1.0);
-  
-  float len = length(uv);
-  
-  float rspeed = mix(max_speed, min_speed, len);
-  
-  //Test
-  ratio = abs(sin(CoronaTotalTime * 0.5));
+  vec4 orig = texture2D( CoronaSampler0, texCoord );
 
-  float sinx = sin((1. - ratio) * rspeed);
-  float cosx = cos((1. - ratio) * rspeed);
-  
-  vec2 trs = uv * mat2(vec2(cosx, sinx), vec2(-sinx, cosx));
-  trs /= pow(ratio, power);
-  
-  trs += vec2(1.0);
-  trs /= 2.;
+  vec2 uv = texCoord * 2.0 - vec2( 1.0 );
+  float len = length( uv );
 
-  P_COLOR vec4 COLOR;
-  if(trs.x > 1. || trs.x < 0. || trs.y > 1. || trs.y < 0.) {
-      // Prevent sprite leaking.
-      COLOR = vec4(0.);
-  } else {
-      vec4 col = texture2D(CoronaSampler0, trs);   
-    COLOR = col;
+  // twist strongest at center, relaxing to Size; TIME slowly turns it
+  float gate = 1.0 - smoothstep( 0.0, max( Size * 1.4142, 0.05 ), len );
+  float ang = ( 1.0 - Ratio ) * ( 2.0 + Spin * 3.0 ) * gate
+            + CoronaTotalTime * Spin * 0.4 * gate;
+
+  float s = sin( ang );
+  float c = cos( ang );
+  vec2 trs = uv * mat2( vec2( c, s ), vec2( -s, c ) );
+  trs /= pow( max( Ratio, 0.05 ), 2.0 );
+  trs = trs * 0.5 + vec2( 0.5 );
+
+  vec4 warped;
+  if ( trs.x > 1.0 || trs.x < 0.0 || trs.y > 1.0 || trs.y < 0.0 )
+  {
+      warped = vec4( 0.0 ); // prevent sprite leaking, stay transparent
+  }
+  else
+  {
+      warped = texture2D( CoronaSampler0, trs );
   }
 
-  return CoronaColorScale(COLOR);
+  vec4 outc = mix( orig, warped, clamp( Process, 0.0, 1.0 ) );
+
+  P_COLOR vec4 COLOR = outc;
+  COLOR.rgb *= COLOR.a;
+  return CoronaColorScale( COLOR );
 }
 
 ]]
@@ -113,8 +76,3 @@ return kernel
 --[[
 
 --]]
-
-
-
-
-

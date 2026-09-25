@@ -1,3 +1,12 @@
+--[[
+  Fake 3D perspective tilt for sprites.
+  Improved: was a single Ratio param, sampled out-of-range UVs with
+  clamp (streaky edges), and had a duplicated isTimeDependent line.
+  Now Shift slides the vanishing point, Zoom reframes, out-of-range
+  pixels go transparent instead of streaking, and Process blends
+  original -> tilted.
+--]]
+
 local kernel = {}
 
 kernel.language = "glsl"
@@ -6,64 +15,54 @@ kernel.category = "filter"
 kernel.group = "deform"
 kernel.name = "perspective"
 
-kernel.isTimeDependent = true
-
-kernel.isTimeDependent = true
+kernel.isTimeDependent = false
 
 kernel.vertexData =
 {
-  { name = "Ratio",      default = 0.5, min = -15, max = 15, index = 0, },
-} 
+  { name = "Process", default = 1,   min = 0,  max = 1,   index = 0, },
+  { name = "Ratio",   default = 0.5, min = -8, max = 8,   index = 1, },
+  { name = "Shift",   default = 0,   min = -1, max = 1,   index = 2, },
+  { name = "Zoom",    default = 1,   min = 0.5, max = 2,  index = 3, },
+}
 
 kernel.fragment =
 [[
 
-float Ratio = CoronaVertexUserData.x;
-//----------------------------------------------
-
-uniform sampler2D TEXTURE;
-
 P_UV vec2 iResolution = 1.0 / CoronaTexelSize.zw;
-P_COLOR vec4 COLOR = vec4(0);
-
-//----------------------------------------------
-
 
 P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
 {
+    float Process = CoronaVertexUserData.x;
+    float Ratio   = CoronaVertexUserData.y;
+    float Shift   = CoronaVertexUserData.z;
+    float Zoom    = CoronaVertexUserData.w;
+
+    vec4 orig = texture2D( CoronaSampler0, UV );
+
     vec2 fragCoord = UV * iResolution;
-    
-    //----------------------------------------------
-    //Screen resolution
     vec2 res = iResolution.xy;
-    //Pixel coordinates centered in the middle of the screen
-    vec2 pos = fragCoord - res*0.5;
-    //Perspective ratio
-    
-    //Compute uv coordinates with perspective ratio
-    vec2 uv = pos / (res - pos * Ratio).y + 0.5;
-    
-    
+    vec2 pos = fragCoord - res * 0.5;
 
-    //Sample texture at uv coordinates
-    COLOR = texture2D(TEXTURE,uv);
-    
-    /*
-    vec2 grid = uv*5.0+0.5;
-    vec2 stripe = abs(fract(grid)-.5);
-    COLOR = vec4(res.y/2e2-.5*stripe / fwidth(grid), 0, 1);
-    */
-    //----------------------------------------------
+    vec2 uv = pos / ( res - pos * Ratio ).y + 0.5;
+    uv = ( uv - vec2( 0.5 ) ) / max( Zoom, 0.1 ) + vec2( 0.5, 0.5 + Shift );
 
-    return CoronaColorScale(COLOR);
+    vec4 warped;
+    if ( uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 )
+    {
+        warped = vec4( 0.0 );
+    }
+    else
+    {
+        warped = texture2D( CoronaSampler0, uv );
+    }
 
+    vec4 outc = mix( orig, warped, clamp( Process, 0.0, 1.0 ) );
 
+    P_COLOR vec4 COLOR = outc;
+    COLOR.rgb *= COLOR.a;
+
+    return CoronaColorScale( COLOR );
 }
 ]]
 
 return kernel
-
-
-
-
-

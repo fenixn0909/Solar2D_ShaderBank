@@ -8,19 +8,46 @@
 local kernel = {}
 kernel.language = "glsl"
 kernel.category = "generator"
-kernel.group = "BG"
-kernel.name = "waterToonTorrent"
+kernel.group = "water"
+kernel.name = "windWalk2D"
 
 
 kernel.isTimeDependent = true
 
-kernel.vertexData =
+kernel.vertexData = nil
+
+kernel.uniformData =
 {
-  { name = "Speed",       default = 1, min = 0, max = 32, index = 0, },
-  { name = "TileX",        default = 0.5, min = -10, max = 10, index = 1, },
-  { name = "TileY",       default = 0.5, min = -10, max = 10, index = 2, },
-  { name = "Alpha",      default = .5, min = 0, max = 1, index = 3, },
-} 
+    {
+        index = 0,
+        type = "mat4",
+        name = "uniSetting",
+        paramName = {
+            'Speed','TileX','TileY','Alpha',
+            'Wave_Height','Foam_Amount','Foam_Scale','Brightness',
+            'Water_R','Water_G','Water_B','Foam_R',
+            'Foam_G','Foam_B','Flow_Angle','',
+        },
+        default = {
+            1,.5,.5,.5,
+            1,1,1,1,
+            .176,.635,.851,.875,
+            .988,1,0,0,
+        },
+        min = {
+            0,-10,-10,0,
+            0,0,.2,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        max = {
+            32,10,10,1,
+            3,2,3,2,
+            1,1,1,1,
+            1,1,6.28318,0,
+        },
+    },
+}
 
 kernel.vertex =
 [[
@@ -42,10 +69,18 @@ P_POSITION vec2 VertexKernel( P_POSITION vec2 position )
 kernel.fragment =
 [[
 
-float Speed = CoronaVertexUserData.x;
-float TileX = CoronaVertexUserData.y;
-float TileY = CoronaVertexUserData.z;
-float Alpha = CoronaVertexUserData.w;
+uniform P_COLOR mat4 u_UserData0;
+float Speed = u_UserData0[0][0];
+float TileX = u_UserData0[0][1];
+float TileY = u_UserData0[0][2];
+float Alpha = u_UserData0[0][3];
+float Wave_Height  = u_UserData0[1][0];
+float Foam_Amount  = u_UserData0[1][1];
+float Foam_Scale   = u_UserData0[1][2];
+float Brightness   = u_UserData0[1][3];
+vec3 Water_Tint    = vec3( u_UserData0[2][0], u_UserData0[2][1], u_UserData0[2][2] );
+vec3 Foam_Tint     = vec3( u_UserData0[2][3], u_UserData0[3][0], u_UserData0[3][1] );
+float Flow_Angle   = u_UserData0[3][2];
 
 P_UV vec2 iResolution = vec2( 1, 1 );
 //----------------------------------------------
@@ -164,11 +199,12 @@ vec3 water(vec2 uv, vec3 cdir, float iTime)
 {
     uv *= vec2(0.25);
     
-    
+    vec3 waterBase = mix( WATER_COL.rgb, Water_Tint, 0.65 );
+    vec3 foamBase = mix( FOAM_COL.rgb, Foam_Tint, 0.65 );
 
     // Parallax height distortion with two directional waves at
     // slightly different angles.
-    vec2 a = 0.025 * cdir.xz / cdir.y; // Parallax offset
+    vec2 a = 0.025 * Wave_Height * cdir.xz / cdir.y; // Parallax offset
     float h = sin(uv.x + iTime); // Height at UV
     uv += a * h;
     h = sin(0.841471 * uv.x - 0.540302 * uv.y + iTime);
@@ -182,11 +218,12 @@ vec3 water(vec2 uv, vec3 cdir, float iTime)
     vec2 dist = vec2(
         sin(d1) * 0.15 + sin(d2) * 0.05,
         cos(d1) * 0.15 + cos(d2) * 0.05
-    );
+    ) * Wave_Height;
     
-    vec3 ret = mix(WATER_COL.rgb, WATER2_COL.rgb, waterlayer(uv + dist.xy));
-    ret = mix(ret, FOAM_COL.rgb, waterlayer(vec2(1.0) - uv - dist.yx));
-    return ret;
+    vec3 ret = mix(waterBase, WATER2_COL.rgb, waterlayer(uv + dist.xy));
+    float foamMask = waterlayer(vec2(1.0) - uv * Foam_Scale - dist.yx);
+    ret = mix(ret, foamBase, clamp( foamMask * Foam_Amount, 0.0, 1.0 ));
+    return ret * Brightness;
 }
 
 
@@ -204,6 +241,11 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     //----------------------------------------------
 
     vec2 uv = globalposition / 32.0;
+    {
+        float ca = cos( Flow_Angle );
+        float sa = sin( Flow_Angle );
+        uv = vec2( uv.x * ca - uv.y * sa, uv.x * sa + uv.y * ca );
+    }
     COLOR.rgb = vec3(water(uv * TileXY + offset, vec3(0,1,0), TIME * Speed));
     //----------------------------------------------
     COLOR.a = Alpha;

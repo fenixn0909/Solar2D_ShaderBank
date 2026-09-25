@@ -1,33 +1,13 @@
-
 --[[
-  
-  Origin Author: nimitz
+  Origin Author: nimitz (Shadertoy MdlXRS, flow-noise with swirls)
   https://www.shadertoy.com/view/MdlXRS
 
-  Playing with different ways of animating noise. 
-  In this version, the noise is made using a technique similar to "flow noise" (maybe it even qualifies as flow noise)
-  
-
-  // Noise animation - Flow
-  // 2014 by nimitz (twitter: @stormoid)
-  // https://www.shadertoy.com/view/MdlXRS
-  // License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License
-  // Contact the author for other licensing options
-
-
-  //Somewhat inspired by the concepts behind "flow noise"
-  //every octave of noise is modulated separately
-  //with displacement using a rotated vector field
-
-  //normalization is used to created "swirls"
-  //usually not a good idea, depending on the type of noise
-  //you are going for.
-
-  //Sinus ridged fbm is used for better effect.
-
+  Fixed: `p *= mat2` is illegal GLSL (needs m * v), and the only
+  params were boring texWidth/texHeight. The flow field is UV-based and
+  the sprite image itself is the noise source (like the original).
+  Fun tweakings: Process (1st, sprite -> flow), Speed (0 = frozen),
+  Scale (zoom), Style (0 poison / 1 lava / 2 ocean / 3 gold).
 --]]
-
-
 
 local kernel = {}
 kernel.language = "glsl"
@@ -35,126 +15,97 @@ kernel.category = "filter"
 kernel.group = "BG"
 kernel.name = "noiseAnimFlow"
 
-
 kernel.isTimeDependent = true
 
 kernel.vertexData   = {
-  {
-    name = "texWidth",
-    default = 64,
-    min = 1,
-    max = 9999,
-    index = 0,    
-  },
-  {
-    name = "texHeight",
-    default = 64,
-    min = 1,
-    max = 9999,  
-    index = 1,    
-  },
+  { name = "Process", default = 1,   min = 0, max = 1,  index = 0, },
+  { name = "Speed", default = 0.6, min = 0, max = 2,  index = 1, },
+  { name = "Scale", default = 6,   min = 2, max = 14, index = 2, },
+  { name = "Style", default = 0,   min = 0, max = 3,  index = 3, },
 }
-
 
 kernel.fragment =
 [[
-P_DEFAULT vec2 texSize = vec2( CoronaVertexUserData.x, CoronaVertexUserData.y );
+#define TAU_FLOW 6.2831853
 
-//P_UV vec2 iResolution = vec2(1.);
-//P_UV vec2 iResolution = vec2( 1, texSize.y / texSize.x);
-P_UV vec2 iResolution = vec2( texSize.x, texSize.y);
-//----------------------------------------------
-  #define time CoronaTotalTime*0.1
-  #define tau 6.2831853
+mat2 makem2_flow( float theta )
+{
+    float c = cos( theta );
+    float s = sin( theta );
+    return mat2( c, -s, s, c );
+}
 
-  float intensive = 6.; // 2.  6: balanced 12: for flame world
-  float detail = 3.; //7.  3 for toon
+// the sprite image itself is the noise source (tiled)
+float vnoise_flow( vec2 x )
+{
+    return texture2D( CoronaSampler0, fract( x * 0.08 ) ).x;
+}
 
-  //P_COLOR vec3 baseColor = vec3(.2,0.07,0.01); // Origin Lava 
-  //P_COLOR vec3 baseColor = vec3(.35,0.11,0.04); // Flame vec3(.2,0.07,0.01)
-  //P_COLOR vec3 baseColor = vec3(.27,0.53,0.81); // Ocean
-  //P_COLOR vec3 baseColor = vec3(.97,0.83,0.11); // Golden Shine
-  //P_COLOR vec3 baseColor = vec3(.37,0.33,0.06); // Golden Dark
-  P_COLOR vec3 baseColor = vec3(.27,0.09,0.61); // Poison
+float grid_flow( vec2 p ) { return sin( p.x ) * cos( p.y ); }
 
-  mat2 makem2(in float theta){float c = cos(theta);float s = sin(theta);return mat2(c,-s,s,c);}
-  float noise( in vec2 x ){return texture2D( CoronaSampler0, x*.01).x;}
-  mat2 m2 = mat2( 0.80,  0.60, -0.60,  0.80 );
-
-  float grid(vec2 p)
-  {
-    float s = sin(p.x)*cos(p.y);
-    return s;
-  }
-
-  float flow(in vec2 p)
-  {
-    float z= intensive;
-    float rz = 0.;
+float flow_main( vec2 p, float t )
+{
+    float z = 6.0;
+    float rz = 0.0;
     vec2 bp = p;
-    for (float i= 1.;i < detail;i++ )
+    mat2 m2 = mat2( 0.80, 0.60, -0.60, 0.80 );
+    for ( int i = 1; i <= 4; i++ )
     {
-      bp += time*1.5;
-      vec2 gr = vec2(grid(p*3.-time*2.),grid(p*3.+4.-time*2.))*0.4;
-      gr = normalize(gr)*0.4;
-      gr *= makem2((p.x+p.y)*.3+time*10.);
-      p += gr*0.5;
-      
-      rz+= (sin(noise(p)*8.)*0.5+0.5) /z;
-      
-      p = mix(bp,p,.5);
-      z *= 1.7;
-      p *= 2.5;
-      p*=m2;
-      bp *= 2.5;
-      bp*=m2;
+        bp += t * 1.5;
+        vec2 gr = vec2( grid_flow( p * 3.0 - t * 2.0 ),
+                        grid_flow( p * 3.0 + 4.0 - t * 2.0 ) ) * 0.4;
+        gr = normalize( gr + vec2( 0.0001 ) ) * 0.4;
+        gr *= makem2_flow( ( p.x + p.y ) * 0.3 + t * 10.0 );
+        p += gr * 0.5;
+        rz += ( sin( vnoise_flow( p ) * 8.0 ) * 0.5 + 0.5 ) / z;
+        p = mix( bp, p, 0.5 );
+        z *= 1.7;
+        p = m2 * ( p * 2.5 );
+        bp = m2 * ( bp * 2.5 );
     }
-    return rz;  
-  }
+    return rz;
+}
 
-  float spiral(vec2 p,float scl) 
-  {
-    float r = length(p);
-    r = log(r);
-    float a = atan(p.y, p.x);
-    return abs(mod(scl*(r-2./scl*a),tau)-1.)*2.;
-  }
-
-
-// -----------------------------------------------
+float spiral_flow( vec2 p, float scl )
+{
+    float r = length( p ) + 0.001;
+    r = log( r );
+    float a = atan( p.y, p.x );
+    return abs( mod( scl * ( r - 2.0 / scl * a ), TAU_FLOW ) - 1.0 ) * 2.0;
+}
 
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
-  P_UV vec2 fragCoord = ( texCoord.xy / iResolution );
-  P_COLOR vec4 COLOR;
-  P_DEFAULT float iTime = CoronaTotalTime;
+  float Process = CoronaVertexUserData.x;
+  float Speed = CoronaVertexUserData.y;
+  float Scale = CoronaVertexUserData.z;
+  int   Style = int( CoronaVertexUserData.w + 0.5 );
 
-  //scale = sin(CoronaTotalTime*3) * 1000;
-  //amount = abs(sin(CoronaTotalTime*1)) * 3 + 1.5; // For Dot
-  //amount = abs(sin(CoronaTotalTime*1)) *2  + 1; // For Line
-  //saturation = abs(sin(CoronaTotalTime)) * 1 + .7;
+  float t = CoronaTotalTime * 0.35 * Speed;
 
-  //----------------------------------------------
-    float texRatio = iResolution.x/iResolution.y;
-    //vec2 p = fragCoord.xy / iResolution.xy-0.5;
-    //vec2 p = gl_FragCoord.xy / iResolution.xy - vec2(1.2, 1.2 );
-    vec2 p = texCoord.xy - 0.5;
-    p.x *= iResolution.x/iResolution.y;
-    //p.y *= iResolution.y/iResolution.x;
+  float aspect = CoronaTexelSize.w / max( CoronaTexelSize.z, 0.00001 );
+  vec2 p = texCoord - vec2( 0.5 );
+  p.x *= aspect;
+  p *= Scale;
 
-    p*= 6.;
-    float rz = flow(p);
-    p /= exp(mod(time*3.,2.1));
-    rz *= (6.-spiral(p,3.))*.9;
-    vec3 col = baseColor/rz;
-    col=pow(abs(col),vec3(1.01));
-    COLOR = vec4(col,1.0);
+  float rz = flow_main( p, t );
+  vec2 sp = p / exp( mod( t * 3.0, 2.1 ) );
+  rz *= ( 6.0 - spiral_flow( sp, 3.0 ) ) * 0.9;
 
-  //----------------------------------------------
-  //COLOR.a *= alpha;
-  //COLOR.rgb *= COLOR.a;
-  //COLOR.rgb = col2;
+  vec3 base = vec3( 0.16, 0.05, 0.38 );
+  if ( Style == 1 )      base = vec3( 0.32, 0.10, 0.02 );
+  else if ( Style == 2 ) base = vec3( 0.03, 0.20, 0.38 );
+  else if ( Style == 3 ) base = vec3( 0.45, 0.30, 0.05 );
 
+  vec3 col = base / max( rz, 0.12 );
+  col = pow( clamp( abs( col ), 0.0, 4.0 ), vec3( 1.01 ) );
+
+  vec4 orig = texture2D( CoronaSampler0, texCoord );
+  vec3 outc = mix( orig.rgb, col, clamp( Process, 0.0, 1.0 ) );
+  float outa = mix( orig.a, 1.0, clamp( Process, 0.0, 1.0 ) );
+
+  P_COLOR vec4 COLOR = vec4( outc, outa );
+  COLOR.rgb *= COLOR.a;
   return CoronaColorScale( COLOR );
 }
 ]]
@@ -164,5 +115,3 @@ return kernel
 --[[
 
 --]]
-
-

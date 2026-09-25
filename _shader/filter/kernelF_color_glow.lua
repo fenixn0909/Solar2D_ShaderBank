@@ -1,28 +1,14 @@
-
 --[[
-
   Origin Author: Rosace
   https://godotshaders.com/shader/glow-effect-2d/
-  
-  This shader allows you to make a part of a sprite glow without having to make a light mask
 
-  you have source colors these are the colors of the pixels you want to glow
-
-  the threshold value is a sensivity
-
-  the intensity is the strength of the glow
-
-  and the opacity allows to see the original sprite under it
-
-  oh and of course the glow color you want
-
-   
-
-  if you’re new with Godot you’ll need a worldenvironment node with “glow” checked for this to work.
-
+  Selective glow: bright pixels bloom into a tinted halo.
+  Rebuilt: the 2 old params (progress, vd_resolution) were boring, and
+  threshold/intensity/glow_color were overwritten by sin(TIME) test
+  lines every frame. Removed both old params. Now Threshold picks
+  which pixels glow, Intensity sets halo strength, Radius sets halo
+  size, Glow_Hue tints it, and Process fades original -> glowing.
 --]]
-
-
 
 local kernel = {}
 kernel.language = "glsl"
@@ -30,91 +16,89 @@ kernel.category = "filter"
 kernel.group = "color"
 kernel.name = "glow"
 
---Test
-kernel.isTimeDependent = true
+kernel.isTimeDependent = false
 
-kernel.vertexData =
+kernel.vertexData = nil
+
+kernel.uniformData =
 {
-  {
-    name = "progress",
-    default = 1,
-    min = 0,
-    max = 1,
-    index = 0, 
-  },
-  {
-    name = "vd_resolution",
-    default = 5000,
-    min = 1,
-    max = 9999,
-    index = 1, 
-  },
+    {
+        index = 0,
+        type = "mat4",
+        name = "uniSetting",
+        paramName = {
+            'Process','Threshold','Intensity','Radius',
+            'Glow_Hue','','','',
+            '','','','',
+            '','','','',
+        },
+        default = {
+            1,0.5,1.2,2,
+            0.33,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        min = {
+            0,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+            0,0,0,0,
+        },
+        max = {
+            1,1.2,4,8,
+            1,1,1,1,
+            1,1,1,1,
+            1,1,1,1,
+        },
+    },
 }
-
 
 kernel.fragment =
 [[
-P_DEFAULT float progress = CoronaVertexUserData.x;
-vec4 colorBG = vec4(0,0,0,0);
-P_DEFAULT float vd_resolution = CoronaVertexUserData.y;
+uniform P_COLOR mat4 u_UserData0;
 
-//----------------------------------------------
-P_COLOR vec4 color1 = vec4(0,0,0,1); // color wants to glow
-P_COLOR vec4 color2 = vec4(0,1,1,1); // color wants to glow
-P_COLOR vec4 glow_color = vec4(0,1,0,1); //: source_color
+float Process   = u_UserData0[0][0];
+float Threshold = u_UserData0[0][1];
+float Intensity = u_UserData0[0][2];
+float Radius    = u_UserData0[0][3];
+float Glow_Hue  = u_UserData0[1][0];
 
-P_DEFAULT float threshold = 0.5;
-P_DEFAULT float intensity = 1;
-P_DEFAULT float opacity = 1;
-
-
+vec3 hsv2rgb_glow( vec3 c )
+{
+    vec4 K = vec4( 1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0 );
+    vec3 p = abs( fract( c.xxx + K.xyz ) * 6.0 - K.www );
+    return c.z * mix( K.xxx, clamp( p - K.xxx, 0.0, 1.0 ), c.y );
+}
 
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
   P_UV vec2 UV = texCoord;
-  P_COLOR vec4 COLOR;
-  threshold = sin(CoronaTotalTime*37);
-  intensity = sin(CoronaTotalTime*5)*10;
-  //opacity = sin(CoronaTotalTime*10);
 
-  glow_color.r = sin(CoronaTotalTime*5);
-  glow_color.g = cos(CoronaTotalTime*3);
-  glow_color.b = cos(CoronaTotalTime*7);
+  vec4 src = texture2D( CoronaSampler0, UV );
 
-  //progress = abs(sin(CoronaTotalTime));
-  //progress *= pRate;
-  //progress = pRate - progress; // Inversion
+  float lum = dot( src.rgb, vec3( 0.299, 0.587, 0.114 ) ) / max( src.a, 0.001 );
+  float mask = smoothstep( Threshold, Threshold + 0.2, lum );
 
-  //----------------------------------------------
-  
-  // Get the pixel color from the texture
-  vec4 pixel_color = texture2D(CoronaSampler0, UV);
-  
-  // Calculate the distance between the pixel color and the first source color
-  float distance = length(pixel_color - color1);
-  
-  // Calculate the distance between the pixel color and the second source color
-  float distance_second = length(pixel_color - color2);
-  
-  // Create a new variable to store the modified glow color
-  vec4 modified_glow_color = glow_color;
-  
-  // Set the alpha value of the modified glow color to the specified opacity
-  modified_glow_color.a = opacity;
-  
-  // If the distance to either source color is below the threshold, set the output color to a blend of the pixel color and the modified glow color
-  if (distance < threshold || distance_second < threshold) {
-    COLOR = mix(pixel_color, modified_glow_color * intensity, modified_glow_color.a);
-  }
-  // Otherwise, set the output color to the pixel color
-  else {
-    COLOR = pixel_color;
-  }
+  // tinted halo from blurred neighbours
+  vec2 px = CoronaTexelSize.zw * max( Radius, 0.0 );
+  vec3 halo = vec3( 0.0 );
+  halo += texture2D( CoronaSampler0, UV + vec2( px.x, 0.0 ) ).rgb;
+  halo += texture2D( CoronaSampler0, UV - vec2( px.x, 0.0 ) ).rgb;
+  halo += texture2D( CoronaSampler0, UV + vec2( 0.0, px.y ) ).rgb;
+  halo += texture2D( CoronaSampler0, UV - vec2( 0.0, px.y ) ).rgb;
+  halo += texture2D( CoronaSampler0, UV + px ).rgb;
+  halo += texture2D( CoronaSampler0, UV - px ).rgb;
+  halo += texture2D( CoronaSampler0, UV + vec2( px.x, -px.y ) ).rgb;
+  halo += texture2D( CoronaSampler0, UV + vec2( -px.x, px.y ) ).rgb;
+  halo /= 8.0;
 
-  //----------------------------------------------
-  
-  
-  
+  vec3 tint = hsv2rgb_glow( vec3( Glow_Hue, 0.85, 1.0 ) );
+  vec3 glowing = src.rgb + tint * halo * Intensity * ( 0.25 + mask );
+
+  vec3 col = mix( src.rgb, glowing, clamp( Process, 0.0, 1.0 ) );
+
+  P_COLOR vec4 COLOR = vec4( col, src.a );
+  COLOR.rgb *= COLOR.a;
 
   return CoronaColorScale( COLOR );
 }
@@ -125,5 +109,3 @@ return kernel
 --[[
 
 --]]
-
-

@@ -2,10 +2,14 @@
   Original Author : hayden
   https://godotshaders.com/author/hayden/
 
-  Adds directional motion blur to canvas items like Sprite. 
-  Direction, size, and quality of blur can be configured.
-
-]]
+  Directional motion blur for sprites.
+  Fixed (round 2): the old version scaled the mesh in a custom vertex
+  shader, overrode `quality` with a sin(TIME) test line every frame, had
+  a junk paletteRowCols param, and used a dynamic loop bound (GLES
+  compile risk). Rebuilt as a fragment-only blur: no vertex stage, no
+  overrides, constant-bound taps. Params: Angle (streak direction),
+  Length (streak reach in UV), Samples (tap count), Process (sharp ->
+  smeared).
 --]]
 local kernel = {}
 
@@ -13,102 +17,51 @@ kernel.language = "glsl"
 kernel.category = "filter"
 kernel.group = "blur"
 kernel.name = "motion2D"
-kernel.isTimeDependent = true
-
+kernel.isTimeDependent = false
 
 kernel.vertexData =
 {
-  {
-    name = "quality",
-    default = 1,
-    min = 0,
-    max = 9999,
-    type = "int",
-    index = 0,    -- v_UserData.x;  use a_UserData.x if #kernel.vertexData == 1 ?
-  },
-  {
-    name = "paletteRowCols",
-    default = 4,
-    min = 1,
-    max = 16,     -- 16x16->256
-    index = 1,    -- v_UserData.y
-  },
+  { name = "Process", default = 1,    min = 0, max = 1,   index = 0, },
+  { name = "Angle",   default = 45,   min = 0, max = 360, index = 1, },
+  { name = "Length",  default = 0.05, min = 0, max = 0.2, index = 2, },
+  { name = "Samples", default = 8,    min = 2, max = 16,  index = 3, },
 }
-
-kernel.vertex =
-[[
-varying vec2 dir = vec2( 0.05, 0.05 );
-varying vec2 v_uv;
-
-P_POSITION vec2 VertexKernel( P_POSITION vec2 position )
-{
-  P_POSITION vec2 VERTEX = position;
-  P_UV vec2 UV = CoronaTexCoord;
-
-  vec2 blurSize = abs(dir) * 2.0;
-  VERTEX *= blurSize + 1.0;
-  UV = (UV - 0.5) * (blurSize + 1.0) + 0.5;
-  v_uv = UV;
-
-
-  return VERTEX;
-}
-]]
-
 
 kernel.fragment =
 [[
-varying vec2 dir;
-varying vec2 v_uv;
-
-int quality = int(CoronaVertexUserData.x);
-
-
-float insideUnitSquare(vec2 v) {
-    vec2 s = step(vec2(0.0), v) - step(vec2(1.0), v);
-    return s.x * s.y;   
-}
-
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
-  vec2 v_uvShift = v_uv;
-  
-  //Test
-  quality = int( abs(sin(CoronaTotalTime*1)) * 5 );
-  //v_uvShift.x = abs(sin(CoronaTotalTime*1) * 0.5);
+  float Process = CoronaVertexUserData.x;
+  float Angle   = CoronaVertexUserData.y;
+  float Length  = CoronaVertexUserData.z;
+  int   Samples = int( clamp( CoronaVertexUserData.w + 0.5, 2.0, 16.0 ) );
 
+  vec4 orig = texture2D( CoronaSampler0, texCoord );
 
-  P_UV vec2 UV = v_uvShift;
+  vec2 dir = vec2( cos( radians( Angle ) ), sin( radians( Angle ) ) )
+           * Length / float( Samples );
 
-  float inSquare = insideUnitSquare(UV);
-  float numSamples = inSquare;
-  P_COLOR vec4 COLOR = texture2D(CoronaSampler0, UV) * inSquare;
-  
-  vec2 stepSize = dir/(float(quality));
-  vec2 uv;
-  for(int i = 1; i <= quality; i++){
-    uv = UV + stepSize * float(i);
-    inSquare = insideUnitSquare(uv);
-    numSamples += inSquare;
-    COLOR += texture2D(CoronaSampler0, uv) * inSquare;
-    
-    uv = UV - stepSize * float(i);
-    inSquare = insideUnitSquare(uv);
-    numSamples += inSquare;
-    COLOR += texture2D(CoronaSampler0, uv) * inSquare;
+  vec3 acc = orig.rgb;
+  float acA = orig.a;
+  // constant-bound taps, gated by Samples
+  for ( int i = 1; i <= 16; i++ )
+  {
+      if ( i > Samples ) break;
+      vec2 off = dir * float( i );
+      vec4 a = texture2D( CoronaSampler0, texCoord + off );
+      vec4 b = texture2D( CoronaSampler0, texCoord - off );
+      acc += a.rgb + b.rgb;
+      acA += a.a + b.a;
   }
-  COLOR.rgb /= numSamples;
-  COLOR.a /= float(quality)*2.0 + 1.0;
+  float n = float( Samples ) * 2.0 + 1.0;
+  vec4 blurred = vec4( acc / n, acA / n );
 
-  return CoronaColorScale(COLOR);
+  vec4 outc = mix( orig, blurred, clamp( Process, 0.0, 1.0 ) );
+
+  P_COLOR vec4 COLOR = outc;
+  COLOR.rgb *= COLOR.a;
+  return CoronaColorScale( COLOR );
 }
 ]]
 
 return kernel
-
-
-
---[[
-  
-
---]]

@@ -107,18 +107,30 @@ vec2 rotate_uv(vec2 uv, vec2 center, float rotation, bool use_degrees){
 //----------------------------------------------
 P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
 {
-    
+    // real-time params: the old sliders did nothing because the body
+    // only read the hardcoded uniforms below. (Never assign TO those
+    // uniforms - they are read-only; use locals instead.)
+    float vdIntensity = CoronaVertexUserData.x; // glint brightness
+    float vdSize      = CoronaVertexUserData.y; // band width
+    float vdTilt      = CoronaVertexUserData.z; // band angle 0..90 deg
+    float vdSpeed     = CoronaVertexUserData.w; // sweep speed
+
+    float effBrightness = 0.5 + vdIntensity * 3.0;
+    float effLineWidth  = 0.01 + vdSize * 0.25;
+    float effRotation   = vdTilt * 45.0;
+    float effSpeed      = vdSpeed;
+
     //----------------------------------------------
 
     P_COLOR vec4 texColor = texture2D( CoronaSampler0, UV );
-    P_COLOR vec4 COLOR = texture2D(CoronaSampler0, UV, 0.0);
+    P_COLOR vec4 COLOR = texture2D( CoronaSampler0, UV );
 
 
     vec2 center_uv = UV - vec2(0.5, 0.5);
     float gradient_to_edge = max(abs(center_uv.x), abs(center_uv.y));
     gradient_to_edge = gradient_to_edge * Distortion;
     gradient_to_edge = 1.0 - gradient_to_edge;
-    vec2 rotaded_uv = rotate_uv(UV, vec2(0.5, 0.5), Rotation_deg, true);
+    vec2 rotaded_uv = rotate_uv(UV, vec2(0.5, 0.5), effRotation, true);
     
     float remapped_position;
     {
@@ -127,7 +139,7 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     }
     
     //float remapped_time = TIME * Speed + remapped_position;
-    float remapped_time = abs(sin(TIME)) * Speed + remapped_position;
+    float remapped_time = abs(sin(TIME)) * effSpeed + remapped_position;
     remapped_time = fract(remapped_time);
     {
       float output_range = 2.0 - (-2.0);
@@ -141,15 +153,15 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     line = sqrt(line);
     
     float line_smoothness = clamp(Line_Smoothness, 0.001, 1.0);
-    float offset_plus = Line_Width + line_smoothness;
-    float offset_minus = Line_Width - line_smoothness;
+    float offset_plus = effLineWidth + line_smoothness;
+    float offset_minus = effLineWidth - line_smoothness;
     
     float remapped_line;
     {
       float input_range = offset_minus - offset_plus;
       remapped_line = (line - offset_plus) / input_range;
     }
-    remapped_line = remapped_line * Brightness;
+    remapped_line = remapped_line * effBrightness;
     remapped_line = min(remapped_line, Alpha);
     
 
@@ -159,7 +171,7 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
     float _a = max(sign(_cChk - 0), 0.0);
     remapped_line = remapped_line * _a;
     
-    remapped_line = remapped_line * Brightness;
+    remapped_line = remapped_line * effBrightness;
     remapped_line = min(remapped_line, Alpha);
     //COLOR.rgb = vec3(COLOR.xyz) * vec3(remapped_line);
     //COLOR.a = remapped_line;

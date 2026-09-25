@@ -1,13 +1,13 @@
-
 --[[
   Origin Author: snesmocha
   https://godotshaders.com/author/snesmocha/
-  
-  --Not Done Yet
 
+  RGB channel split / offset with optional animated scanline glitch.
+  Fixed: the old file only had a vertex-deformation kernel and no
+  fragment stage (plus 4 boring unused params), so no RGB effect was
+  ever visible. Now Amount/Angle/Glitch/Process drive a real fragment
+  RGB-split. See the trailing comment for the original Godot draft.
 --]]
-
-
 
 local kernel = {}
 
@@ -16,76 +16,46 @@ kernel.category = "filter"
 kernel.group = "color"
 kernel.name = "rgbOffset"
 
---Test
 kernel.isTimeDependent = true
 
--- Expose effect parameters using vertex data
 kernel.vertexData   = {
-  {
-    name = "intensity",
-    default = 0.65, 
-    min = 0,
-    max = 1,
-    index = 0,  -- This corresponds to "CoronaVertexUserData.x"
-  },
-  {
-    name = "size",
-    default = 0.1, 
-    min = 0,
-    max = 1,
-    index = 1,  -- This corresponds to "CoronaVertexUserData.y"
-  },
-  {
-    name = "tilt",
-    default = 0.2, 
-    min = 0.0,
-    max = 2.0,
-    index = 2,  -- This corresponds to "CoronaVertexUserData.z"
-  },
-  {
-    name = "speed",
-    default = 1.0, 
-    min = 0.1,
-    max = 10.0,
-    index = 3,  -- This corresponds to "CoronaVertexUserData.w"
-  },
+  { name = "Process", default = 1,     min = 0,   max = 1,    index = 0, },
+  { name = "Amount",  default = 0.012, min = 0,   max = 0.1,  index = 1, },
+  { name = "Angle",   default = 0,     min = 0,   max = 360,  index = 2, },
+  { name = "Glitch",  default = 0,     min = 0,   max = 1,    index = 3, },
 }
 
-
-kernel.vertex =
+kernel.fragment =
 [[
-
-
-
-vec2 deformation = vec2(0.0, 0.0);
-float sideWaysDeformationFactor = 5.0;
-float knockbackFactor = 0.4;
-
-
-P_POSITION vec2 VertexKernel( P_POSITION vec2 position )
+P_COLOR vec4 FragmentKernel( P_UV vec2 UV )
 {
-  P_POSITION vec2 VERTEX = position;
+  float Process = CoronaVertexUserData.x;
+  float Amount  = CoronaVertexUserData.y;
+  float Angle   = CoronaVertexUserData.z;
+  float Glitch  = CoronaVertexUserData.w;
 
-  //sideWaysDeformationFactor = sin(CoronaTotalTime * 1) * 5;
-  deformation.y = sin(CoronaTotalTime * 1) * 0.5;
-  knockbackFactor = sin(CoronaTotalTime * 0.5) * 0.5;
+  vec2 dir = vec2( cos( radians( Angle ) ), sin( radians( Angle ) ) ) * Amount;
 
-  vec2 deformationStrength = abs(deformation);
-  float sideWaysDeformation = min(deformationStrength.x, deformationStrength.y);
-  float spriteWidth = abs(VERTEX.x);
-  if (sign(VERTEX.y) != sign(deformation.y)) {
-    VERTEX.x += sideWaysDeformation * sideWaysDeformationFactor * spriteWidth * sign(deformation.x);
+  // animated per-scanline jitter; 0 = clean static split
+  if ( Glitch > 0.001 )
+  {
+      float line = floor( UV.y * 220.0 );
+      float tick = floor( CoronaTotalTime * 24.0 );
+      float n = fract( sin( line * 12.9898 + tick * 78.233 ) * 43758.5453 );
+      dir.x += ( n - 0.5 ) * Glitch * 0.12;
   }
-  vec2 scale = 1.0 - deformationStrength;
-  
-  VERTEX.x *= scale.x / scale.y;
-  VERTEX.y *= scale.y / scale.x;
-  VERTEX.xy += deformation * spriteWidth * knockbackFactor;
 
+  P_COLOR vec4 orig = texture2D( CoronaSampler0, UV );
+  float r = texture2D( CoronaSampler0, UV - dir ).r;
+  float b = texture2D( CoronaSampler0, UV + dir ).b;
 
-  return VERTEX;
+  vec3 split = vec3( r, orig.g, b );
+  vec3 col = mix( orig.rgb, split, clamp( Process, 0.0, 1.0 ) );
+
+  P_COLOR vec4 COLOR = vec4( col, orig.a );
+  COLOR.rgb *= COLOR.a;
+  return CoronaColorScale( COLOR );
 }
-
 ]]
 
 return kernel
@@ -111,15 +81,10 @@ void fragment()
     vec4 disp = texture(displace, SCREEN_UV * dispSize);
     vec2 newUV = SCREEN_UV + disp.xy * dispAmt;
     //abberation
-    COLOR.r = texture(SCREEN_TEXTURE, newUV - abberationAmtXR).r; 
-    COLOR.g = texture(SCREEN_TEXTURE, newUV + abberationAmtXG).g; 
+    COLOR.r = texture(SCREEN_TEXTURE, newUV - abberationAmtXR).r;
+    COLOR.g = texture(SCREEN_TEXTURE, newUV + abberationAmtXG).g;
     COLOR.b = texture(SCREEN_TEXTURE, newUV + abberationAmtXB).b;
     COLOR.a = texture(SCREEN_TEXTURE, newUV).a * maxAlpha;
     }
 
 --]]
-
-
-
-
-

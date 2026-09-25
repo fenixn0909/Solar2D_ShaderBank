@@ -1,27 +1,11 @@
-
 --[[
-  
   Origin Author: ChaffDev
   https://godotshaders.com/shader/tilt-shift-shader/
-  
-  So when I was playing Link’s Awaking on switch I looked at the tilt shift effect, I knew I had to put this fun game down, jump into godot and start writing a shader to do the exact same thing. Because I love fun. And I couldn’t think of anything more fun then a shader.
-   
-  There are three variables that you can use to make the tilt shift effect.
-   
-  Blur: To control the blur intensity
-   
-  Limit: To control the area that will be out of focus
-   
-  Intensity: To control the fall off of the effect. Best kept closer to the limit.
-   
-  There’s also a debug variable that you can use to dial in the settings.
-   
-  Why would you need something like this?
-   
-  Well Godot has built in DOF blur for near and far but on certail angles this is not useful for producing the same look. DOF far might still work but near specifically blurs things close to camera so on a top down angle it won’t really work. In 3d at the angle I am using I use DOF far but have this shader on the lower part of the screen to simulate something closer to link’s awaking.
-   
-  Then there’s 2d applications for this shader. If you’re making a city builder or some world map. Maybe it could be useful.
 
+  Miniature tilt-shift: a sharp horizontal band, blur above and below.
+  Round 3: Process is now the 1st param, and the blur is a much wider
+  2-ring 16-tap blur - the old single 2px ring was nearly invisible on
+  small sprites. Alpha is always the sprite's own (never black bars).
 --]]
 
 local kernel = {}
@@ -32,10 +16,10 @@ kernel.group = "blur"
 kernel.name = "tiltShift"
 kernel.vertexData =
 {
-  { name = "Blur",      default = 1.5, min = 0, max = 5,   index = 0, },
-  { name = "Limit",     default = 0.3, min = 0, max = 0.5, index = 1, },
-  { name = "Intensity", default = 0.28, min = 0, max = 1,  index = 2, },
-  { name = "Debug",     default = 0,   min = 0, max = 1,  index = 3, },
+  { name = "Process",   default = 1,   min = 0, max = 1,   index = 0, },
+  { name = "Blur",      default = 2.5, min = 0, max = 8,   index = 1, },
+  { name = "Limit",     default = 0.3, min = 0, max = 0.5, index = 2, },
+  { name = "Intensity", default = 0.4, min = 0, max = 1,   index = 3, },
 }
 
 kernel.isTimeDependent = false
@@ -43,59 +27,47 @@ kernel.isTimeDependent = false
 kernel.fragment =
 [[
 
-P_COLOR vec3 tweener = vec3(1);
-//----------------------------------------------
-
-float limit; //: hint_range(0.0,0.5) 
-float blur; //: hint_range(0.0,5.0)
-float intensity; //: hint_range (0.0, 1)
-vec4 colorDB = vec4( 0.9, 0.5, 0.5, 1);
-float debug;
-
-
-
-//----------------------------------------------
 P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
 {
-  // real-time params from vertexData
-  float blur      = CoronaVertexUserData.x;
-  float limit     = CoronaVertexUserData.y;
-  float intensity = CoronaVertexUserData.z;
-  float debug     = CoronaVertexUserData.w;
+  float Process   = CoronaVertexUserData.x;
+  float Blur      = CoronaVertexUserData.y;
+  float Limit     = CoronaVertexUserData.z;
+  float Intensity = CoronaVertexUserData.w;
 
-  P_UV vec2 UV = texCoord;
-  P_UV vec2 SCREEN_UV = texCoord;
-  P_COLOR vec4 COLOR;
-  //strength = 0.6;
-  //----------------------------------------------
-  if (UV.y<limit){ 
-        
-      float _step = smoothstep(UV.y,limit,intensity);
-      vec4 color = texture2D(CoronaSampler0, SCREEN_UV, blur);
-      COLOR = color;
-      
-      if (debug > 0.5){
-        COLOR = colorDB;
-      }
-      COLOR.a = _step;
-    } else if (UV.y > 1.0-limit) {
-      float _step = smoothstep(UV.y,1.0-limit,1.0-intensity) ;
-      vec4 color = texture2D(CoronaSampler0, SCREEN_UV, blur);
-      COLOR = color;
-      if (debug > 0.5){
-        COLOR = colorDB;
-      }
-      COLOR.a = _step;
-    }else{
-        // preserve original in focus band; opaque (alpha 1) not black
-        COLOR = texture2D(CoronaSampler0, SCREEN_UV);
-        COLOR.a = 1.0;
-    }
+  vec4 sharp = texture2D( CoronaSampler0, texCoord );
 
+  // explicit 2-ring blur (no lod-bias: sprites have no mipmaps)
+  vec2 px = CoronaTexelSize.zw * Blur * 2.0;
+  vec2 px2 = px * 2.0;
+  vec3 acc = sharp.rgb;
+  acc += texture2D( CoronaSampler0, texCoord + vec2( px.x, 0.0 ) ).rgb;
+  acc += texture2D( CoronaSampler0, texCoord - vec2( px.x, 0.0 ) ).rgb;
+  acc += texture2D( CoronaSampler0, texCoord + vec2( 0.0, px.y ) ).rgb;
+  acc += texture2D( CoronaSampler0, texCoord - vec2( 0.0, px.y ) ).rgb;
+  acc += texture2D( CoronaSampler0, texCoord + px ).rgb;
+  acc += texture2D( CoronaSampler0, texCoord - px ).rgb;
+  acc += texture2D( CoronaSampler0, texCoord + vec2( px.x, -px.y ) ).rgb;
+  acc += texture2D( CoronaSampler0, texCoord + vec2( -px.x, px.y ) ).rgb;
+  acc += texture2D( CoronaSampler0, texCoord + vec2( px2.x, 0.0 ) ).rgb;
+  acc += texture2D( CoronaSampler0, texCoord - vec2( px2.x, 0.0 ) ).rgb;
+  acc += texture2D( CoronaSampler0, texCoord + vec2( 0.0, px2.y ) ).rgb;
+  acc += texture2D( CoronaSampler0, texCoord - vec2( 0.0, px2.y ) ).rgb;
+  acc += texture2D( CoronaSampler0, texCoord + px2 ).rgb;
+  acc += texture2D( CoronaSampler0, texCoord - px2 ).rgb;
+  acc += texture2D( CoronaSampler0, texCoord + vec2( px2.x, -px2.y ) ).rgb;
+  acc += texture2D( CoronaSampler0, texCoord + vec2( -px2.x, px2.y ) ).rgb;
+  vec3 blurred = acc / 17.0;
 
-  //----------------------------------------------
+  // focus band [Limit, 1-Limit]; blur grows outside it.
+  float feather = max( Intensity, 0.01 ) * 0.5 + 0.01;
+  float mTop = 1.0 - smoothstep( Limit - feather, Limit, texCoord.y );
+  float mBot = smoothstep( 1.0 - Limit, 1.0 - Limit + feather, texCoord.y );
+  float m = clamp( mTop + mBot, 0.0, 1.0 ) * clamp( Process, 0.0, 1.0 );
+
+  vec3 col = mix( sharp.rgb, blurred, m );
+
+  P_COLOR vec4 COLOR = vec4( col, sharp.a );
   COLOR.rgb *= COLOR.a;
-  //COLOR = texture2D(CoronaSampler0, SCREEN_UV, blur);
 
   return CoronaColorScale( COLOR );
 }

@@ -25,6 +25,8 @@ kernel.vertexData =
 {
     { name = "Speed",   default = 5, min = 0, max = 30, index = 0, },
     { name = "Alpha",   default = .5, min = 0, max = 1, index = 1, },
+    { name = "Scale",   default = 1, min = .1, max = 5, index = 2, },
+    { name = "Shift",   default = 0, min = 0, max = 6.28318, index = 3, },
 } 
 
 kernel.fragment =
@@ -32,6 +34,8 @@ kernel.fragment =
 
 float Speed = CoronaVertexUserData.x;
 float Alpha = CoronaVertexUserData.y;
+float Pattern_Scale = CoronaVertexUserData.z;
+float Color_Shift = CoronaVertexUserData.w;
 //----------------------------------------------
 
 P_UV vec2 iResolution = vec2(1,1);
@@ -94,7 +98,7 @@ P_COLOR vec4 FragmentKernel( P_UV vec2 texCoord )
     vec2 uv = fragCoord/iResolution.xy;
 
     // Time varying pixel color
-    vec3 col = 0.5 + 0.5*cos( iTime + uv.xyx + vec3(0,2,4));
+    vec3 col = 0.5 + 0.5*cos( iTime * Speed * 0.2 + uv.xyx * ( 3.0 * Pattern_Scale ) + vec3(0,2,4) + Color_Shift);
 
     //----------------------------------------------
     COLOR = vec4(col,alpha);
